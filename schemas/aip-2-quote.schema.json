@@ -1,0 +1,186 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agirails.io/schemas/aip-2-quote.schema.json",
+  "title": "AGIRAILS Price Quote Message v1",
+  "description": "Schema for provider price quote messages in the AGIRAILS protocol (AIP-2)",
+  "type": "object",
+  "required": [
+    "type",
+    "version",
+    "txId",
+    "provider",
+    "consumer",
+    "quotedAmount",
+    "originalAmount",
+    "maxPrice",
+    "currency",
+    "decimals",
+    "quotedAt",
+    "expiresAt",
+    "chainId",
+    "nonce",
+    "signature"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "agirails.quote.v1",
+      "description": "Message type identifier for quote messages"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of AIP-2 specification (e.g., 1.0.0)",
+      "examples": ["1.0.0"]
+    },
+    "txId": {
+      "type": "string",
+      "pattern": "^0x[a-fA-F0-9]{64}$",
+      "description": "ACTP transaction ID (bytes32 hex string)",
+      "examples": ["0x7d87c3b8e23a5c9d1f4e6b2a8c5d9e3f1a7b4c6d8e2f5a3b9c1d7e4f6a8b2c5d"]
+    },
+    "provider": {
+      "type": "string",
+      "pattern": "^did:ethr:(\\d+:)?0x[a-fA-F0-9]{40}$",
+      "description": "Provider DID (must match transaction.provider)",
+      "examples": [
+        "did:ethr:84532:0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+        "did:ethr:0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+      ]
+    },
+    "consumer": {
+      "type": "string",
+      "pattern": "^did:ethr:(\\d+:)?0x[a-fA-F0-9]{40}$",
+      "description": "Consumer DID (must match transaction.requester)",
+      "examples": [
+        "did:ethr:84532:0x1234567890abcdef1234567890abcdef12345678",
+        "did:ethr:0x1234567890abcdef1234567890abcdef12345678"
+      ]
+    },
+    "quotedAmount": {
+      "type": "string",
+      "pattern": "^\\d+$",
+      "description": "Provider's quoted price in token base units (uint256 as string). Must be >= originalAmount and <= maxPrice. Minimum: 50000 (0.05 USDC)",
+      "examples": ["7500000", "10000000", "50000"]
+    },
+    "originalAmount": {
+      "type": "string",
+      "pattern": "^\\d+$",
+      "description": "Consumer's originally offered amount from AIP-1 request (uint256 as string)",
+      "examples": ["5000000", "1000000"]
+    },
+    "maxPrice": {
+      "type": "string",
+      "pattern": "^\\d+$",
+      "description": "Consumer's maximum acceptable price from AIP-1 request (uint256 as string). Quote must not exceed this value.",
+      "examples": ["10000000", "15000000"]
+    },
+    "currency": {
+      "type": "string",
+      "enum": ["USDC"],
+      "description": "Payment token symbol (currently only USDC is supported)"
+    },
+    "decimals": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18,
+      "description": "Token decimal places (USDC uses 6 decimals)",
+      "examples": [6]
+    },
+    "quotedAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unix timestamp (seconds) when quote was created. Must be within 5-minute clock skew tolerance of current time.",
+      "examples": [1732000000]
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unix timestamp (seconds) when quote expires. Must be > quotedAt and <= quotedAt + 86400 (24 hours maximum).",
+      "examples": [1732003600]
+    },
+    "justification": {
+      "type": "object",
+      "description": "Optional provider justification for quoted price. Informational only, not validated.",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Human-readable explanation of price adjustment",
+          "examples": ["Dataset size requires additional compute resources and processing time"]
+        },
+        "estimatedTime": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Estimated service completion time in seconds",
+          "examples": [300, 600, 1800]
+        },
+        "computeCost": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Estimated compute cost in USD",
+          "examples": [2.5, 5.0, 10.0]
+        },
+        "breakdown": {
+          "type": "object",
+          "description": "Itemized cost breakdown (provider-defined schema)",
+          "additionalProperties": true,
+          "examples": [
+            {
+              "basePrice": 5.0,
+              "additionalCompute": 2.5
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "chainId": {
+      "type": "integer",
+      "enum": [84532, 8453],
+      "description": "Blockchain network ID (84532 = Base Sepolia, 8453 = Base Mainnet)",
+      "examples": [84532, 8453]
+    },
+    "nonce": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonically increasing nonce per provider DID + message type (agirails.quote.v1). Prevents replay attacks.",
+      "examples": [1, 2, 3]
+    },
+    "signature": {
+      "type": "string",
+      "pattern": "^0x[a-fA-F0-9]{130}$",
+      "description": "EIP-712 signature by provider (65 bytes = 130 hex chars + 0x prefix). Signature covers all fields except itself.",
+      "examples": ["0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c"]
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "type": "agirails.quote.v1",
+      "version": "1.0.0",
+      "txId": "0x7d87c3b8e23a5c9d1f4e6b2a8c5d9e3f1a7b4c6d8e2f5a3b9c1d7e4f6a8b2c5d",
+      "provider": "did:ethr:84532:0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+      "consumer": "did:ethr:84532:0x1234567890abcdef1234567890abcdef12345678",
+      "quotedAmount": "7500000",
+      "originalAmount": "5000000",
+      "maxPrice": "10000000",
+      "currency": "USDC",
+      "decimals": 6,
+      "quotedAt": 1732000000,
+      "expiresAt": 1732003600,
+      "justification": {
+        "reason": "Dataset size requires additional compute resources",
+        "estimatedTime": 300,
+        "computeCost": 2.5,
+        "breakdown": {
+          "basePrice": 5.0,
+          "additionalCompute": 2.5
+        }
+      },
+      "chainId": 84532,
+      "nonce": 1,
+      "signature": "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c"
+    }
+  ]
+}

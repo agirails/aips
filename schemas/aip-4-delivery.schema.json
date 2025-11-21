@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AGIRAILS Delivery Proof v1",
+  "type": "object",
+  "required": [
+    "type",
+    "version",
+    "txId",
+    "provider",
+    "consumer",
+    "resultCID",
+    "resultHash",
+    "deliveredAt",
+    "chainId",
+    "nonce",
+    "signature"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "agirails.delivery.v1",
+      "description": "Message type identifier"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version (e.g., 1.0.0)"
+    },
+    "txId": {
+      "type": "string",
+      "pattern": "^0x[a-fA-F0-9]{64}$",
+      "description": "ACTP transaction ID (bytes32)"
+    },
+    "provider": {
+      "type": "string",
+      "pattern": "^did:ethr:(\\d+:)?0x[a-fA-F0-9]{40}$",
+      "description": "Provider DID (must match transaction.provider)"
+    },
+    "consumer": {
+      "type": "string",
+      "pattern": "^did:ethr:(\\d+:)?0x[a-fA-F0-9]{40}$",
+      "description": "Consumer DID (must match transaction.requester)"
+    },
+    "resultCID": {
+      "type": "string",
+      "pattern": "^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[A-Za-z2-7]{58,}|bafy[a-z2-7]{56,})$",
+      "description": "IPFS CID (CIDv0: Qm..., CIDv1 base32: bafy..., bafk..., bafybei..., etc.)",
+      "examples": [
+        "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG",
+        "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
+        "bafkreih475g3yk67xjenvlatgumnbtqay7edgyrxevoqzihjltjm3f6cf4"
+      ]
+    },
+    "resultHash": {
+      "type": "string",
+      "pattern": "^0x[a-fA-F0-9]{64}$",
+      "description": "Keccak256 hash of canonical result JSON (integrity check)"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Optional delivery metadata",
+      "properties": {
+        "executionTime": {
+          "type": "number",
+          "description": "Time taken to complete service (seconds)"
+        },
+        "outputFormat": {
+          "type": "string",
+          "description": "MIME type or format identifier (e.g., application/json, image/png)"
+        },
+        "outputSize": {
+          "type": "number",
+          "description": "Size of result data in bytes"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Provider notes or comments"
+        }
+      }
+    },
+    "easAttestationUID": {
+      "type": "string",
+      "pattern": "^0x[a-fA-F0-9]{64}$",
+      "description": "EAS attestation UID (bytes32, anchored on-chain)"
+    },
+    "deliveredAt": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Unix timestamp when work was completed (seconds)"
+    },
+    "chainId": {
+      "type": "number",
+      "description": "Blockchain chain ID (84532 for Base Sepolia, 8453 for Base Mainnet)"
+    },
+    "nonce": {
+      "type": "number",
+      "minimum": 1,
+      "description": "Monotonically increasing nonce per provider DID + message type"
+    },
+    "signature": {
+      "type": "string",
+      "pattern": "^0x[a-fA-F0-9]{130}$",
+      "description": "EIP-712 signature by provider (65 bytes hex)"
+    }
+  }
+}
