@@ -1,0 +1,162 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agirails.io/schemas/aip-2-quote.eip712.json",
+  "title": "AGIRAILS Price Quote EIP-712 Type Definition",
+  "description": "EIP-712 typed structured data definition for AIP-2 quote messages",
+  "version": "1.0.0",
+  "domain": {
+    "name": "AGIRAILS",
+    "version": "1",
+    "chainId": "DYNAMIC",
+    "verifyingContract": "DYNAMIC",
+    "comment": "chainId and verifyingContract must be set dynamically based on network (Base Sepolia: 84532, Base Mainnet: 8453)"
+  },
+  "types": {
+    "EIP712Domain": [
+      { "name": "name", "type": "string" },
+      { "name": "version", "type": "string" },
+      { "name": "chainId", "type": "uint256" },
+      { "name": "verifyingContract", "type": "address" }
+    ],
+    "PriceQuote": [
+      { "name": "txId", "type": "bytes32" },
+      { "name": "provider", "type": "string" },
+      { "name": "consumer", "type": "string" },
+      { "name": "quotedAmount", "type": "string" },
+      { "name": "originalAmount", "type": "string" },
+      { "name": "maxPrice", "type": "string" },
+      { "name": "currency", "type": "string" },
+      { "name": "decimals", "type": "uint8" },
+      { "name": "quotedAt", "type": "uint256" },
+      { "name": "expiresAt", "type": "uint256" },
+      { "name": "justificationHash", "type": "bytes32" },
+      { "name": "chainId", "type": "uint256" },
+      { "name": "nonce", "type": "uint256" }
+    ]
+  },
+  "primaryType": "PriceQuote",
+  "typeHash": {
+    "value": "PENDING",
+    "computation": "keccak256('PriceQuote(bytes32 txId,string provider,string consumer,string quotedAmount,string originalAmount,string maxPrice,string currency,uint8 decimals,uint256 quotedAt,uint256 expiresAt,bytes32 justificationHash,uint256 chainId,uint256 nonce)')",
+    "note": "Type hash will be computed after implementation and testing"
+  },
+  "fieldDescriptions": {
+    "txId": "ACTP transaction ID (bytes32)",
+    "provider": "Provider DID in did:ethr format (string)",
+    "consumer": "Consumer DID in did:ethr format (string)",
+    "quotedAmount": "Provider's quoted price in base units (string, not uint256 to avoid JavaScript overflow)",
+    "originalAmount": "Consumer's original offer from AIP-1 (string)",
+    "maxPrice": "Consumer's maximum acceptable price from AIP-1 (string)",
+    "currency": "Payment token symbol (string, currently 'USDC' only)",
+    "decimals": "Token decimal places (uint8, USDC uses 6)",
+    "quotedAt": "Quote creation timestamp in Unix seconds (uint256)",
+    "expiresAt": "Quote expiry timestamp in Unix seconds (uint256)",
+    "justificationHash": "Keccak256 hash of canonical JSON-stringified justification object (bytes32). Use zero hash if justification is omitted.",
+    "chainId": "Blockchain network ID (uint256, 84532 for Base Sepolia, 8453 for Base Mainnet)",
+    "nonce": "Monotonically increasing nonce per provider + message type (uint256)"
+  },
+  "signingInstructions": {
+    "step1": "Construct the quote message with all required fields",
+    "step2": "If justification is provided, compute justificationHash = keccak256(canonicalJsonStringify(justification)). Otherwise, use zero hash (0x0000...0000)",
+    "step3": "Create EIP-712 domain with correct chainId and verifyingContract for the network",
+    "step4": "Sign using _signTypedData(domain, types, message) from ethers.js or equivalent library",
+    "step5": "Attach signature to quote message as 'signature' field (130 hex chars + 0x prefix)",
+    "step6": "Verify signature using verifyTypedData(domain, types, message, signature) before accepting quote"
+  },
+  "verificationInstructions": {
+    "step1": "Extract signature from quote message",
+    "step2": "Recompute justificationHash from quote.justification (if present)",
+    "step3": "Reconstruct EIP-712 domain with correct chainId and verifyingContract",
+    "step4": "Call verifyTypedData(domain, types, message, signature) to recover signer address",
+    "step5": "Compare recovered address to provider DID address (extracted from did:ethr:...)",
+    "step6": "If addresses match, signature is valid"
+  },
+  "example": {
+    "domain": {
+      "name": "AGIRAILS",
+      "version": "1",
+      "chainId": 84532,
+      "verifyingContract": "0xACTPKernelAddressHere"
+    },
+    "message": {
+      "txId": "0x7d87c3b8e23a5c9d1f4e6b2a8c5d9e3f1a7b4c6d8e2f5a3b9c1d7e4f6a8b2c5d",
+      "provider": "did:ethr:84532:0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+      "consumer": "did:ethr:84532:0x1234567890abcdef1234567890abcdef12345678",
+      "quotedAmount": "7500000",
+      "originalAmount": "5000000",
+      "maxPrice": "10000000",
+      "currency": "USDC",
+      "decimals": 6,
+      "quotedAt": 1732000000,
+      "expiresAt": 1732003600,
+      "justificationHash": "0x8f4b7e8c9d2a3f5e6b1c8d7a4e9f2b5c3a6d8e1f7c4b9a2d5e8f1c3a6b9d2e5f",
+      "chainId": 84532,
+      "nonce": 1
+    },
+    "signature": "0x<130_hex_characters_here>"
+  },
+  "testVectors": [
+    {
+      "description": "Minimal valid quote (no justification)",
+      "domain": {
+        "name": "AGIRAILS",
+        "version": "1",
+        "chainId": 84532,
+        "verifyingContract": "0x0000000000000000000000000000000000000001"
+      },
+      "message": {
+        "txId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "provider": "did:ethr:84532:0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+        "consumer": "did:ethr:84532:0x1234567890abcdef1234567890abcdef12345678",
+        "quotedAmount": "7500000",
+        "originalAmount": "5000000",
+        "maxPrice": "10000000",
+        "currency": "USDC",
+        "decimals": 6,
+        "quotedAt": 1732000000,
+        "expiresAt": 1732003600,
+        "justificationHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "chainId": 84532,
+        "nonce": 1
+      },
+      "expectedTypeHash": "PENDING"
+    },
+    {
+      "description": "Quote with justification",
+      "domain": {
+        "name": "AGIRAILS",
+        "version": "1",
+        "chainId": 84532,
+        "verifyingContract": "0x0000000000000000000000000000000000000001"
+      },
+      "justification": {
+        "reason": "Test justification",
+        "estimatedTime": 300
+      },
+      "message": {
+        "txId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "provider": "did:ethr:84532:0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+        "consumer": "did:ethr:84532:0x1234567890abcdef1234567890abcdef12345678",
+        "quotedAmount": "7500000",
+        "originalAmount": "5000000",
+        "maxPrice": "10000000",
+        "currency": "USDC",
+        "decimals": 6,
+        "quotedAt": 1732000000,
+        "expiresAt": 1732003600,
+        "justificationHash": "COMPUTED_FROM_JUSTIFICATION",
+        "chainId": 84532,
+        "nonce": 1
+      },
+      "note": "justificationHash must be keccak256(canonicalJsonStringify(justification))"
+    }
+  ],
+  "notes": [
+    "All amount fields (quotedAmount, originalAmount, maxPrice) use string type to avoid JavaScript Number.MAX_SAFE_INTEGER overflow",
+    "justificationHash is bytes32 (not the full justification object) to keep signature compact",
+    "If justification is omitted or empty, use zero hash: 0x0000000000000000000000000000000000000000000000000000000000000000",
+    "Nonce scope is per (provider DID, message type), separate from other AIPs",
+    "chainId appears in both domain AND message to ensure cross-chain replay protection",
+    "Signature verification MUST reconstruct justificationHash from justification field before verifying"
+  ]
+}
