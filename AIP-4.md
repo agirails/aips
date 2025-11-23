@@ -3,8 +3,11 @@
 **Status:** Draft
 **Author:** AGIRAILS Core Team
 **Created:** 2025-11-16
-**Updated:** 2025-11-16
+**Updated:** 2025-11-23
 **Depends On:** AIP-0 (Meta Protocol), AIP-1 (Request Metadata)
+
+**Changelog:**
+- 2025-11-23: Added SDK-side attestation verification (`ACTPClient.releaseEscrowWithVerification()`, `EASHelper.verifyDeliveryAttestation()`) to mitigate V1 contract gap
 
 ---
 
@@ -348,9 +351,11 @@ All AIP-4 implementations MUST pass this test vector to ensure hash compatibilit
 
 ### 4.1 Schema Definition
 
-**Schema UID:** `<PENDING - deploy to Base Sepolia EAS>`
+**Schema UID:** `0x1b0ebdf0bd20c28ec9d5362571ce8715a55f46e81c3de2f9b0d8e1b95fb5ffce`
 
-**⚠️ Deployment Status:** Schema definition is finalized and ready for deployment. After deploying to Base Sepolia EAS, the schema UID will be published here and in SDK configuration.
+**✅ Deployment Status:** Schema deployed to Base Sepolia EAS on 2025-11-23.
+- **Transaction**: `0xc3f6286d8b64eba3968ab4be627f33e7f7305a43216376f8c859f3536ec60ff6`
+- **EAS Explorer**: https://base-sepolia.easscan.org/schema/view/0x1b0ebdf0bd20c28ec9d5362571ce8715a55f46e81c3de2f9b0d8e1b95fb5ffce
 
 **Schema String:**
 ```solidity
@@ -795,9 +800,10 @@ function anchorAttestation(bytes32 transactionId, bytes32 attestationUID) extern
 4. Transaction now has fake attestation anchored
 
 **Current Mitigations:**
-1. **Off-Chain Verification**: Consumer verifies attestation via EAS before accepting delivery
-2. **Reputation Damage**: Fake attestation provider gets caught during consumer verification
-3. **Access Control**: Only transaction participants can call (but both can submit fake UID)
+1. **SDK-Side Verification** (Implemented 2025-11-23): `ACTPClient.releaseEscrowWithVerification()` automatically verifies attestation before releasing escrow
+2. **Off-Chain Verification**: Consumer verifies attestation via EAS before accepting delivery
+3. **Reputation Damage**: Fake attestation provider gets caught during consumer verification
+4. **Access Control**: Only transaction participants can call (but both can submit fake UID)
 
 **Recommended Fix (Future Contract Version):**
 ```solidity
@@ -835,49 +841,90 @@ function anchorAttestation(bytes32 transactionId, bytes32 attestationUID) extern
 
 **Status:**
 - ❌ **Contract V1**: Does NOT validate attestations on-chain (accepts any bytes32 UID)
-- ✅ **V1 Mitigation**: Consumers MUST verify attestations directly on EAS before settling
+- ✅ **SDK Protection** (Implemented 2025-11-23): `ACTPClient.releaseEscrowWithVerification()` and `EASHelper.verifyDeliveryAttestation()` provide client-side validation
+- ✅ **V1 Mitigation**: Consumers MUST verify attestations via SDK before settling
 - 📋 **Contract V2**: Will enforce on-chain validation (7 checks below)
 
 ### V1 Mitigation Strategy (Current Implementation)
 
-Since Contract V1 does NOT validate EAS attestations, consumers MUST implement client-side verification:
+Since Contract V1 does NOT validate EAS attestations, consumers MUST implement client-side verification.
+
+**SDK Implementation (Recommended - Available since 2025-11-23):**
+
+The AGIRAILS SDK provides built-in attestation verification to protect consumers:
 
 ```typescript
-// ⚠️ REQUIRED FOR CONTRACT V1 - Verify attestation before settling
+// ✅ RECOMMENDED: Use SDK's built-in verification (safest)
+import { ACTPClient } from '@agirails/sdk';
 
-// Step 1: Get attestation UID from delivery proof (off-chain message)
-const deliveryProof = await ipfs.get(deliveryProofCID);
-const attestationUID = deliveryProof.easAttestationUID;
+const client = await ACTPClient.create({
+  network: 'base-sepolia',
+  privateKey: process.env.PRIVATE_KEY,
+  eas: {
+    contractAddress: EAS_CONTRACT_ADDRESS,
+    deliveryProofSchemaId: DELIVERY_SCHEMA_UID
+  }
+});
 
-// Step 2: Verify attestation directly on EAS contract
+// Get transaction to retrieve attestation UID
+const tx = await client.kernel.getTransaction(txId);
+
+// Verify attestation and release escrow in one secure call
+// Throws error if attestation is invalid (revoked, expired, wrong txId, etc.)
+await client.releaseEscrowWithVerification(txId, tx.attestationUID);
+```
+
+**Manual Verification (Advanced - if not using SDK):**
+
+```typescript
+// ⚠️ MANUAL VERIFICATION - Only needed if not using SDK
+
+// Step 1: Get attestation UID from transaction
+const attestationUID = tx.attestationUID;
+
+// Step 2: Verify attestation via SDK's EASHelper
+import { EASHelper } from '@agirails/sdk/protocol/EASHelper';
+
+const easHelper = new EASHelper(signer, {
+  contractAddress: EAS_CONTRACT_ADDRESS,
+  deliveryProofSchemaId: DELIVERY_SCHEMA_UID
+});
+
+// Verify attestation (throws if invalid)
+await easHelper.verifyDeliveryAttestation(txId, attestationUID);
+
+// Step 3: Release escrow (only after verification passes)
+await kernel.releaseEscrow(txId);
+```
+
+**Low-Level Verification (Reference - Not Recommended):**
+
+<details>
+<summary>Click to expand low-level EAS verification code (for educational purposes)</summary>
+
+```typescript
+// Step 1: Verify attestation directly on EAS contract
 const eas = new EAS(EAS_CONTRACT_ADDRESS);
 const attestation = await eas.getAttestation(attestationUID);
 
-// Step 3: Validate attestation properties (7 checks)
+// Step 2: Validate attestation properties (7 checks)
 assert(attestation.uid !== ZERO_BYTES32, 'Attestation does not exist');
 assert(attestation.schema === AGIRAILS_DELIVERY_SCHEMA_UID, 'Wrong schema');
 assert(attestation.attester === providerAddress, 'Wrong provider');
 assert(attestation.recipient === consumerAddress, 'Wrong recipient');
 assert(!attestation.revoked, 'Attestation revoked');
 
-// Step 4: Decode and verify attestation data
+// Step 3: Decode and verify attestation data
 const schemaEncoder = new SchemaEncoder('bytes32 txId,string resultCID,bytes32 resultHash,uint256 deliveredAt');
 const decodedData = schemaEncoder.decodeData(attestation.data);
 assert(decodedData.txId === txId, 'Wrong transaction ID');
 
-// Step 5: Verify result integrity
+// Step 4: Verify result integrity
 const resultData = await ipfs.get(decodedData.resultCID);
 const computedHash = keccak256(toUtf8Bytes(canonicalJsonStringify(resultData)));
 assert(computedHash === decodedData.resultHash, 'Result tampered');
-
-// Step 6: Only settle if all checks pass
-if (allChecksPass) {
-  await kernel.transitionState(txId, State.SETTLED);
-  await kernel.releaseEscrow(txId);
-} else {
-  await kernel.transitionState(txId, State.DISPUTED, evidenceCID);
-}
 ```
+</details>
 
 **Key Points:**
 - Contract V1 does NOT enforce these checks - they are CLIENT-SIDE only
