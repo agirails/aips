@@ -21,14 +21,25 @@
 **SDK Integration:** `@agirails/sdk` v0.1.0-beta.2
 **Implementation Score:** 98/100 (Technical Audit 2025-11-24)
 
-### ⚠️ P0 Mainnet Blocker
+### ✅ P0 Mainnet Blocker - RESOLVED
 
 **Issue**: EIP-712 type hashes not computed
-**Location**: §5.2 Message Type Registry (lines 820-826) shows `<PENDING>`
-**Required Before Mainnet**: Compute `keccak256(typeString)` for all 7 message types
-**Tracked**: See line 879 TODO checklist
+**Status**: ✅ **COMPLETED** (2025-11-24)
+**Location**: §5.2 Message Type Registry (lines 827-835)
+**Resolution**: All 7 type hashes computed and documented
 
-**Impact**: Medium - Does not block testnet, but must be resolved before mainnet deployment for complete message type registry.
+**Type Hash Computation Results**:
+- AIP-0.1 (Notification): `0xa02f2574276a8ca75bfdad3fc381f36324358b535685db9f507708ee9490c8e9`
+- AIP-1 (Request): `0x445f1b6560f0d4302d32fa3677ce3a4130fcd347b333c333f78e2725d42b12c7`
+- AIP-2 (Quote): `0x3a250619f2f54b815ae7a1b3219f8a958f9cde40186233bee134b4b9d7095407`
+- AIP-3 (Discovery): `0x34e59475223edfc59d786cb2f8c921a61f2bf4cf7f64bc28b847f9448d16e7a2`
+- AIP-4 (Delivery): `0x7974f677eb16e762b690ee2ec91d75e28a770e2a1ea6fea824eddff6ea9a855b`
+- AIP-5 (Dispute): `0x118a9fe5aef5b766734aa976f70c90a40c4c1144c599a0405a60c18199f9ee66`
+- AIP-6 (Resolution): `0x4312d59902c52428cc3c348e24d4b7b3922b50e0e2c9f8a16ee504f5ec6d1fc2`
+
+**Verification Script**: `/Users/damir/Cursor/AGIRails MVP/AGIRAILS/Protocol/aips/compute-type-hashes.js`
+
+**Impact**: ✅ No longer blocks mainnet deployment - message type registry complete.
 
 ---
 
@@ -826,13 +837,13 @@ Each AIP message MUST include a `type` and `version` field:
 
 | AIP | Message Type | Version | Schema Available | EIP-712 Type Hash | Status | Blocking | Purpose |
 |-----|--------------|---------|------------------|-------------------|--------|----------|---------|
-| **AIP-0.1** | `agirails.notification.v1` | 1.0.0 | ✅ Draft | `<PENDING>` | Draft | **YES** | IPFS Pubsub notification (txId + CID) |
-| **AIP-1** | `agirails.request.v1` | 1.0.0 | ✅ Available | `<PENDING>` | Draft | **YES** | Service request metadata (consumer → provider) |
-| **AIP-2** | `agirails.quote.v1` | 1.0.0 | ❌ TODO | `<PENDING>` | Draft | No | Price quote (provider → consumer) - OPTIONAL |
-| **AIP-3** | `agirails.discovery.v1` | 1.0.0 | ❌ TODO | `<PENDING>` | Draft | No | Provider discovery registry query |
-| **AIP-4** | `agirails.delivery.v1` | 1.0.0 | ✅ Available | `<PENDING>` | Draft | **YES** | Delivery proof + EAS attestation |
-| **AIP-5** | `agirails.dispute.v1` | 1.0.0 | ❌ TODO | `<PENDING>` | Draft | No | Dispute evidence submission |
-| **AIP-6** | `agirails.resolution.v1` | 1.0.0 | ❌ TODO | `<PENDING>` | Draft | No | Mediator resolution decision |
+| **AIP-0.1** | `agirails.notification.v1` | 1.0.0 | ✅ Draft | `0xa02f2574276a8ca75bfdad3fc381f36324358b535685db9f507708ee9490c8e9` | Draft | **YES** | IPFS Pubsub notification (txId + CID) |
+| **AIP-1** | `agirails.request.v1` | 1.0.0 | ✅ Available | `0x445f1b6560f0d4302d32fa3677ce3a4130fcd347b333c333f78e2725d42b12c7` | Draft | **YES** | Service request metadata (consumer → provider) |
+| **AIP-2** | `agirails.quote.v1` | 1.0.0 | ❌ TODO | `0x3a250619f2f54b815ae7a1b3219f8a958f9cde40186233bee134b4b9d7095407` | Draft | No | Price quote (provider → consumer) - OPTIONAL |
+| **AIP-3** | `agirails.discovery.v1` | 1.0.0 | ❌ TODO | `0x34e59475223edfc59d786cb2f8c921a61f2bf4cf7f64bc28b847f9448d16e7a2` | Draft | No | Provider discovery registry query |
+| **AIP-4** | `agirails.delivery.v1` | 1.0.0 | ✅ Available | `0x7974f677eb16e762b690ee2ec91d75e28a770e2a1ea6fea824eddff6ea9a855b` | Draft | **YES** | Delivery proof + EAS attestation |
+| **AIP-5** | `agirails.dispute.v1` | 1.0.0 | ❌ TODO | `0x118a9fe5aef5b766734aa976f70c90a40c4c1144c599a0405a60c18199f9ee66` | Draft | No | Dispute evidence submission |
+| **AIP-6** | `agirails.resolution.v1` | 1.0.0 | ❌ TODO | `0x4312d59902c52428cc3c348e24d4b7b3922b50e0e2c9f8a16ee504f5ec6d1fc2` | Draft | No | Mediator resolution decision |
 
 **Schema Links:**
 - ✅ [AIP-0.1 Notification Schema](./schemas/aip-0.1-notification.schema.json)
@@ -885,10 +896,11 @@ The notification message format (§2.1) is critical infrastructure but was initi
    - [ ] Integration tests with mock IPFS
 
 5. **Update AIP-0** (post-implementation) - **[Issue #TBD]**:
-   - [ ] **P0 MAINNET BLOCKER**: Compute EIP-712 type hashes for message registry (§5.2 lines 820-826)
-     - Extract type definitions from contracts/SDK
-     - Compute keccak256(typeString) for each message type
-     - Replace all `<PENDING>` values with computed hashes
+   - [x] **P0 MAINNET BLOCKER**: Compute EIP-712 type hashes for message registry (§5.2 lines 827-835) ✅ **COMPLETED 2025-11-24**
+     - [x] Extract type definitions from contracts/SDK
+     - [x] Compute keccak256(typeString) for each message type
+     - [x] Replace all `<PENDING>` values with computed hashes
+     - [x] Created verification script: `compute-type-hashes.js`
    - [ ] Mark schema status as ✅ Available
    - [ ] Update "Blocking Status" to show unblocked
    - [ ] Add deployed contract addresses (§2.2)
