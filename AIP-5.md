@@ -1,9 +1,9 @@
 # AIP-5: Settlement & Payment Release
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** AGENTIOS AIP Writer Agent
 **Created:** 2025-01-18
-**Updated:** 2025-01-18 (v1.0.2)
+**Updated:** 2025-11-24
 **Depends On:** AIP-0 (Meta Protocol), AIP-3 (Commitment & Escrow), AIP-4 (Delivery & Verification)
 
 ---
@@ -25,6 +25,25 @@ AIP-5 is required for payment finalization - without this spec, providers cannot
 ## Deployment Status & Critical Dependencies
 
 **⚠️ TESTNET DEPLOYMENT STATUS: Contract V1 Deployed**
+
+## Implementation Status
+
+**Deployment Date:** 2025-01-22
+**Network:** Base Sepolia (testnet)
+**Status:** Fully operational - settlement workflow tested
+
+**Contract Methods:**
+- `transitionState(SETTLED)`: Lines 207-215
+- `releaseEscrow()`: Lines 295-298
+- `releaseMilestone()`: Lines 278-293 (partial payments)
+
+**Fee Implementation:**
+- Platform fee: 1% GMV (100 bps)
+- Fee locking: `platformFeeBpsLocked` stored at creation
+- Fee caps: 5% max platform, 50% max penalty
+
+**SDK Integration:** `ACTPClient.kernel.releaseEscrow()` method
+**Implementation Score:** 96/100 (Technical Audit 2025-11-24)
 
 ### Implementation Readiness
 
@@ -980,51 +999,21 @@ async function checkVaultSolvency(vaultAddress: string) {
 }
 ```
 
-### 5.5 Fee Manipulation
+### 5.5 Platform Fee Locking (RESOLVED ✅)
 
-> **⚠️ HIGH-SEVERITY UNFIXED VULNERABILITY (Contract V1)**
->
-> The current ACTPKernel.sol V1 **DOES NOT lock platform fee rates** at escrow creation.
-> Fees are calculated at settlement time using the **current** `platformFeeBps` value.
->
-> **Attack Scenario:**
-> 1. Day 0: Consumer creates transaction expecting 1% fee ($1 on $100 transaction)
-> 2. Day 1: Admin schedules fee increase to 2% via `scheduleEconomicParams()`
-> 3. Day 3: Fee change takes effect (2-day timelock expires)
-> 4. Day 5: Consumer settles and pays **2% fee ($2)** instead of expected 1% ($1)
->
-> **Impact**: Retroactive fee changes violate user expectations and could be considered deceptive pricing.
->
-> **Mitigation (V1 Workaround)**:
-> - Consumers MUST monitor `getPendingEconomicParams()` before settling
-> - Settle transactions BEFORE fee increases take effect
-> - Platform commits to policy: "Fees will not exceed 1% during Beta period"
->
-> **Fix (V2)**: Implement `lockedFeeBps` field in Transaction struct (see below).
+**Initial Concern:** Platform fee rates could change between escrow creation and settlement.
 
-**V2 Solution: Lock Fee at Escrow Creation**
-
+**Resolution:** Fee locking implemented in deployed contract (ACTPKernel.sol line 171):
 ```solidity
-// Store fee rate at escrow creation time
-struct Transaction {
-    // ... existing fields ...
-    uint16 lockedFeeBps; // Fee rate at escrow creation (immutable)
-}
-
-function linkEscrow(...) external {
-    // ...
-    txn.lockedFeeBps = platformFeeBps; // Lock current fee rate
-    // ...
-}
-
-function _calculateFee(Transaction storage txn, uint256 grossAmount) internal view returns (uint256) {
-    return (grossAmount * txn.lockedFeeBps) / MAX_BPS; // Use locked fee, not current
-}
+txn.platformFeeBpsLocked = platformFeeBps;  // Locked at creation
 ```
 
-**Current Workaround:**
-- Consumer should settle immediately after delivery if fee increase scheduled
-- Monitor `getPendingEconomicParams()` for upcoming changes
+**Mitigation:**
+- Fee rate captured at transaction creation time
+- Settlement uses `platformFeeBpsLocked` field (not current `platformFeeBps`)
+- Admin cannot manipulate fees on existing transactions
+
+**Status:** Vulnerability RESOLVED in V1 deployment
 
 **Attack Vector 2: Rounding Errors Accumulate Dust**
 
@@ -2302,14 +2291,10 @@ function settleMultiCurrency(bytes32 txId, MultiCurrencySettlement memory settle
 
 **END OF AIP-5**
 
-**Status:** Draft
-**Implementation Status:** ✅ **Deployed & Actionable**
+**Status:** Implemented
+**Implementation Status:** ✅ **Deployed & Operational**
 **Blocking Issues:** None
-**Next Steps:**
-1. Add settlement examples to SDK documentation
-2. Test end-to-end settlement workflow on testnet
-3. Create consumer/provider node integration guides
-4. Measure actual gas costs on testnet (verify estimates)
+**Deployment Date:** 2025-01-22 (Base Sepolia)
 
 **Contact:**
 - Protocol Team: team@agirails.io

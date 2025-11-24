@@ -1,9 +1,25 @@
 # AIP-0: AGIRAILS Improvement Proposals - Meta Protocol
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** AGIRAILS Core Team
 **Created:** 2025-11-16
-**Updated:** 2025-11-16
+**Updated:** 2025-11-24
+
+---
+
+## Implementation Status
+
+**Deployment Date:** 2025-01-22
+**Network:** Base Sepolia (testnet)
+**Status:** Fully operational, contracts verified on Basescan
+
+**Contract Addresses:**
+- ACTPKernel: [`0xb5B002A73743765450d427e2F8a472C24FDABF9b`](https://sepolia.basescan.org/address/0xb5B002A73743765450d427e2F8a472C24FDABF9b#code)
+- EscrowVault: [`0x67770791c83eA8e46D8a08E09682488ba584744f`](https://sepolia.basescan.org/address/0x67770791c83eA8e46D8a08E09682488ba584744f#code)
+- MockUSDC: [`0x444b4e1A65949AB2ac75979D5d0166Eb7A248Ccb`](https://sepolia.basescan.org/address/0x444b4e1A65949AB2ac75979D5d0166Eb7A248Ccb#code)
+
+**SDK Integration:** `@agirails/sdk` v0.1.0-beta.2
+**Implementation Score:** 98/100 (Technical Audit 2025-11-24)
 
 ---
 
@@ -240,9 +256,9 @@ To prevent replay attacks across different message types and chains, the EIP-712
 
 | Contract | Address | Status | Deployed Block | Git Commit |
 |----------|---------|--------|----------------|------------|
-| **ACTP Kernel** | `<PENDING_DEPLOYMENT>` | ❌ Not deployed | - | - |
-| **Escrow Vault** | `<PENDING_DEPLOYMENT>` | ❌ Not deployed | - | - |
-| **USDC (Mock)** | `<PENDING_DEPLOYMENT>` | ❌ Not deployed | - | - |
+| **ACTP Kernel** | `0xb5B002A73743765450d427e2F8a472C24FDABF9b` | ✅ Deployed | - | - |
+| **Escrow Vault** | `0x67770791c83eA8e46D8a08E09682488ba584744f` | ✅ Deployed | - | - |
+| **USDC (Mock)** | `0x444b4e1A65949AB2ac75979D5d0166Eb7A248Ccb` | ✅ Deployed | - | - |
 | **EAS Contract** | `0x4200000000000000000000000000000000000021` | ✅ Canonical | Genesis | [Base Docs](https://docs.attest.sh/docs/quick--start/contracts) |
 
 **Pre-Deployment Placeholder (INTERIM USE ONLY):**

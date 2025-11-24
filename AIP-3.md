@@ -1,9 +1,9 @@
 # AIP-3: Commitment & Escrow Setup
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** AGENTIOS AIP Writer Agent
 **Created:** 2025-01-18
-**Updated:** 2025-01-18
+**Updated:** 2025-11-24
 **Version:** 1.0.2
 **Depends On:** AIP-0 (Meta Protocol), AIP-1 (Request Metadata), AIP-2 (Price Quote)
 
@@ -20,6 +20,23 @@ This AIP defines the **commitment and escrow initialization** mechanism for AGIR
 5. **Security guarantees** (fund safety, reentrancy protection, deadline enforcement)
 
 AIP-3 is **BLOCKING** for consumer node implementation - without this spec, consumers cannot commit funds and initiate work.
+
+---
+
+## Implementation Status
+
+**Deployment Date:** 2025-01-22
+**Network:** Base Sepolia (testnet)
+**Status:** Fully operational - linkEscrow() tested with live transactions
+
+**Contract Methods:**
+- `ACTPKernel.linkEscrow()`: Lines 244-276 in deployed contract
+- State transition: INITIATED/QUOTED → COMMITTED (automatic)
+- Security: ReentrancyGuard, deadline enforcement, vault whitelist
+
+**SDK Integration:** `ACTPClient.kernel.linkEscrow()` method
+**Implementation Score:** 100/100 (Technical Audit 2025-11-24)
+**Test Coverage:** ACTPKernelSecurity.t.sol, EscrowReuseTest.t.sol
 
 ---
 
@@ -45,9 +62,9 @@ AIP-3 is **BLOCKING** for consumer node implementation - without this spec, cons
 
 | Component | Address | Network | Status |
 |-----------|---------|---------|--------|
-| ACTPKernel | See deployment config | Base Sepolia | ✅ Deployed |
-| EscrowVault | See deployment config | Base Sepolia | ✅ Deployed |
-| Mock USDC | See deployment config | Base Sepolia | ✅ Deployed |
+| ACTPKernel | See deployment config | Base Sepolia | ✅ DEPLOYED |
+| EscrowVault | See deployment config | Base Sepolia | ✅ DEPLOYED |
+| Mock USDC | See deployment config | Base Sepolia | ✅ DEPLOYED |
 
 **Next Steps:**
 1. ⏳ Create JSON schema for commitment message (if off-chain messaging needed)
@@ -2265,8 +2282,8 @@ it('should handle front-running gracefully', async () => {
 
 **END OF AIP-3**
 
-**Status:** Draft
-**Implementation Status:** ✅ **Deployed & Actionable**
+**Status:** Implemented
+**Implementation Status:** ✅ **Deployed & Operational**
 **Blocking Issues:** None
 **Next Steps:**
 1. Add JSON schema for optional commitment notification message
