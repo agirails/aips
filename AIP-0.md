@@ -21,6 +21,15 @@
 **SDK Integration:** `@agirails/sdk` v0.1.0-beta.2
 **Implementation Score:** 98/100 (Technical Audit 2025-11-24)
 
+### ⚠️ P0 Mainnet Blocker
+
+**Issue**: EIP-712 type hashes not computed
+**Location**: §5.2 Message Type Registry (lines 820-826) shows `<PENDING>`
+**Required Before Mainnet**: Compute `keccak256(typeString)` for all 7 message types
+**Tracked**: See line 879 TODO checklist
+
+**Impact**: Medium - Does not block testnet, but must be resolved before mainnet deployment for complete message type registry.
+
 ---
 
 ## Abstract
@@ -876,7 +885,10 @@ The notification message format (§2.1) is critical infrastructure but was initi
    - [ ] Integration tests with mock IPFS
 
 5. **Update AIP-0** (post-implementation) - **[Issue #TBD]**:
-   - [ ] Replace `<PENDING>` type hashes with actual values
+   - [ ] **P0 MAINNET BLOCKER**: Compute EIP-712 type hashes for message registry (§5.2 lines 820-826)
+     - Extract type definitions from contracts/SDK
+     - Compute keccak256(typeString) for each message type
+     - Replace all `<PENDING>` values with computed hashes
    - [ ] Mark schema status as ✅ Available
    - [ ] Update "Blocking Status" to show unblocked
    - [ ] Add deployed contract addresses (§2.2)

@@ -30,6 +30,32 @@
 
 **Implementation Score:** 92/100 (Technical Audit 2025-11-24)
 
+### 🔴 P0 MAINNET SECURITY WARNING
+
+**CRITICAL**: Contract V1 does NOT validate EAS attestations on-chain
+
+**Issue**: `ACTPKernel.anchorAttestation()` accepts ANY bytes32 value without verifying:
+- Attestation exists on EAS contract
+- Attestation references correct transaction
+- Attestation is not revoked
+- Attestation schema matches expected format
+
+**Attack Vector**: Malicious provider can submit fake attestationUID, claim delivery without actual EAS proof.
+
+**Mitigation (V1)**: SDK provides client-side validation via `releaseEscrowWithVerification()` method
+- Verifies attestation exists on EAS before releasing escrow
+- Checks attestation is not revoked
+- Validates attestation references correct txId
+
+**Risk Level**: HIGH for users who bypass SDK and call contract directly
+
+**Recommendation**:
+- **ALWAYS use SDK methods** (`releaseEscrowWithVerification()`)
+- **DO NOT call contract directly** for escrow release
+- **V2 deployment** (planned) will add on-chain EAS validation (7 checks documented in §7.4)
+
+**Detailed Analysis**: See §7.4 "V1 Contract Gap" (lines 796-968)
+
 ---
 
 ## Abstract
