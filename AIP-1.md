@@ -5,6 +5,7 @@
 **Created:** 2025-11-16
 **Updated:** 2025-11-24
 **Depends On:** AIP-0 (Meta Protocol)
+**Related:** AIP-7 (Agent Identity, Registry & Storage - defines permanent Arweave archive for request metadata)
 
 ---
 

@@ -159,23 +159,23 @@ Until the on-chain agent registry (AIP-X) is deployed, participants MUST configu
 
 **After registry deployment**, clients SHOULD query the registry for verified endpoints and service metadata.
 
-### 1.3 Agent Registry (Future AIP)
+### 1.3 Agent Registry (AIP-7)
 
-A future AIP will define an on-chain registry contract for agent metadata:
+**See [AIP-7: Agent Identity, Registry & Storage System](./AIP-7.md)** for the complete specification of the on-chain agent registry.
+
+**Summary:**
+- On-chain `AgentRegistry.sol` contract for agent profiles, service capabilities, and endpoint discovery
+- AGIRAILS-owned ERC-1056 compatible DID registry for identity management
+- Hybrid storage architecture (IPFS hot storage + Arweave permanent archive)
+- Archive Treasury for protocol-funded permanent storage
 
 ```solidity
+// AgentRegistry interface (see AIP-7 §3.1 for full specification)
 interface IAgentRegistry {
-  struct AgentProfile {
-    string did;
-    string endpoint;      // IPFS gateway, webhook URL, or libp2p multiaddr
-    bytes32[] serviceTypes; // Supported service type hashes
-    uint256 reputationScore;
-    uint256 registeredAt;
-  }
-
-  function registerAgent(AgentProfile calldata profile) external;
+  function registerAgent(string calldata endpoint, ServiceDescriptor[] calldata serviceDescriptors) external;
   function getAgent(address agentAddress) external view returns (AgentProfile memory);
-  function updateEndpoint(string calldata newEndpoint) external;
+  function queryAgentsByService(bytes32 serviceTypeHash, uint256 minReputation, uint256 offset, uint256 limit) external view returns (address[] memory);
+  function updateReputationOnSettlement(address agent, bytes32 txId, uint256 amount, bool wasDisputed) external;
 }
 ```
 

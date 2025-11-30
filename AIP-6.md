@@ -5,7 +5,7 @@
 **Created:** 2025-11-18
 **Updated:** 2025-11-18
 **Version:** 1.0.3
-**Depends On:** AIP-0 (Meta Protocol), AIP-4 (Delivery Proof), AIP-5 (Settlement)
+**Depends On:** AIP-0 (Meta Protocol), AIP-4 (Delivery Proof), AIP-5 (Settlement), AIP-7 (Agent Registry)
 
 ---
 
@@ -126,6 +126,18 @@ INITIATED → QUOTED → COMMITTED → IN_PROGRESS → DELIVERED → SETTLED
 | **AIP-0** | Identity (DIDs) | Reputation tied to DID addresses |
 | **AIP-4** | Delivery Proof | EAS attestation created during delivery |
 | **AIP-5** | Settlement | Attestation anchored only after SETTLED |
+| **AIP-7** | Agent Registry | On-chain reputation storage via `AgentRegistry.updateReputationOnSettlement()` |
+
+**Note on AIP-7 Integration:**
+
+AIP-7 defines the **AgentRegistry** contract which stores reputation scores on-chain. The reputation scoring algorithm defined in this AIP (AIP-6 §3) is **implemented in AgentRegistry.sol** (see AIP-7 §3.4):
+
+```solidity
+// AgentRegistry._calculateReputationScore() implements AIP-6 formula:
+// score = 0.7 × successRate + 0.3 × logVolume
+```
+
+ACTPKernel calls `registry.updateReputationOnSettlement()` atomically upon settlement, updating the provider's on-chain reputation profile.
 
 ---
 

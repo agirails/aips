@@ -5,6 +5,7 @@
 **Created:** 2025-11-16
 **Updated:** 2025-11-24
 **Depends On:** AIP-0 (Meta Protocol), AIP-1 (Request Metadata)
+**Related:** AIP-7 (Agent Identity, Registry & Storage - defines permanent archive via Archive Treasury)
 
 **Changelog:**
 - 2025-11-23: Added SDK-side attestation verification (`ACTPClient.releaseEscrowWithVerification()`, `EASHelper.verifyDeliveryAttestation()`) to mitigate V1 contract gap
