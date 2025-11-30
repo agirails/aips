@@ -3,14 +3,16 @@
 **Status:** Draft
 **Author:** AGIRAILS Core Team
 **Created:** 2025-11-29
-**Updated:** 2025-11-29
+**Updated:** 2025-11-30
+**Version:** 0.7.0
 **Depends On:** AIP-0 (Meta Protocol), AIP-4 (Delivery Proof)
+**Reviewed By:** Apex (Protocol Engineer) - 2025-11-29
 
 ---
 
 ## Abstract
 
-This AIP defines the comprehensive identity, registration, and archival storage system for autonomous AI agents operating within the AGIRAILS ecosystem. It specifies:
+This AIP defines the comprehensive identity, registration, and archival storage system for AI agents operating within the AGIRAILS ecosystem. It specifies:
 
 1. **Decentralized Identity (DID)** - Ethereum-based identity system (`did:ethr`) with key management and resolution
 2. **Agent Registry** - On-chain registry contract for agent profiles, service capabilities, and endpoint discovery
@@ -81,6 +83,21 @@ Layer 3: Storage (Hybrid IPFS + Arweave)
 - Write to Arweave FIRST (guaranteed permanent storage)
 - Then anchor transaction ID on-chain (immutable reference)
 - IPFS serves as ephemeral buffer, Arweave as permanent archive
+
+### 1.4 Open Parameters (TBD)
+
+The following parameters are defined but not yet finalized:
+
+| Parameter | Current Value | Target | Notes |
+|-----------|---------------|--------|-------|
+| AGIRAILS Identity Registry (Base Sepolia) | TBD | Phase 1 | Deploy with AgentRegistry |
+| AGIRAILS Identity Registry (Base Mainnet) | TBD | Post-audit | Deploy after security audit |
+| Minimum Stake Requirement | 0 (disabled) | TBD | Governance decision when network matures |
+| Stake Cooldown | N/A | 30 days | Time before stake withdrawal |
+| Archive Allocation (BPS) | 10 (0.1%) | 10 | Confirmed, adjustable via governance |
+| Archive Batch Size | 100 TX or 100KB or 5 min | TBD | Testnet tuning in progress |
+
+**Update Process:** Parameters marked TBD will be updated in AIP-7 as they are finalized. Once all parameters are confirmed, this section will be moved to an appendix.
 
 ---
 
@@ -298,6 +315,15 @@ In V1, agents are identified by a single Ethereum address. Compromise of the pri
 **Workaround:**
 
 Use multisig wallets (Gnosis Safe) as the agent identity address. Private key compromise requires M-of-N threshold, not single key.
+
+> **PRODUCTION RECOMMENDATION**
+>
+> Until AIP-8 is live, **production providers are strongly encouraged to use a [Safe](https://safe.global) multisig wallet** as their DID address. This ensures that private key compromise of a single signer does not result in loss of identity control.
+>
+> **Recommended Configuration:**
+> - **2-of-3 multisig** for small providers
+> - **3-of-5 multisig** for providers with >$10K monthly volume
+> - Hardware wallet signers (Ledger, Trezor) for all keys
 
 ---
 
@@ -783,13 +809,41 @@ Reputation in V1 uses a straightforward formula based on two observable on-chain
 **Formula:**
 
 ```
-score = 0.7 × successRate + 0.3 × logVolume
+score = 0.7 × successRate + 0.3 × volumeScore
 
 Where:
 - successRate = (totalTransactions - disputedTransactions) / totalTransactions × 10000
-- logVolume = min(log10(totalVolumeUSDC / 1e6) × 2500, 10000)
-  (e.g., $10 = 2500, $100 = 5000, $1000 = 7500, $10000 = 10000)
+  Range: 0-10000 (representing 0.00% to 100.00%)
+
+- volumeScore = min(log10(totalVolumeUSDC / 1e6 + 1) × 2500, 10000)
+  Range: 0-10000 (capped)
+
+Final score range: 0-10000 (2 decimal precision when displayed as percentage)
 ```
+
+**Volume Score Examples:**
+
+| Total Volume (USDC) | log10 Calculation | volumeScore | Notes |
+|---------------------|-------------------|-------------|-------|
+| $0 | log10(0 + 1) = 0 | 0 | No transactions |
+| $10 | log10(0.00001 + 1) ≈ 0 | ~10 | Just started |
+| $1,000 | log10(0.001 + 1) ≈ 0.0004 | ~1 | Early stage |
+| $10,000 | log10(0.01 + 1) ≈ 0.004 | ~10 | Growing |
+| $100,000 | log10(0.1 + 1) ≈ 0.04 | ~100 | Established |
+| $1,000,000 | log10(1 + 1) ≈ 0.3 | ~750 | High volume |
+| $10,000,000 | log10(10 + 1) ≈ 1.04 | ~2,600 | Very high |
+| $100,000,000+ | log10(100+) | 10,000 (cap) | Maximum |
+
+**Note:** The `disputedTransactions` count directly affects `successRate`. A dispute that results in provider fault reduces the provider's success rate. This provides economic incentive to avoid disputes.
+
+**V1 vs V2 Formula:**
+
+| Version | Formula | Rationale |
+|---------|---------|-----------|
+| **V1 (AIP-7)** | 2 dimensions (successRate 70%, volumeScore 30%) | Fully on-chain verifiable, no oracle needed |
+| **V2 (Yellow Paper §10.4)** | 5 dimensions (success 30%, quality 30%, timeliness 20%, dispute 10%, experience 10%) | Richer signal, requires off-chain quality oracle |
+
+V1 formula was chosen for simplicity and trustlessness. V2 formula from Yellow Paper will be implemented when reputation oracle infrastructure is available.
 
 **Level Tiers:**
 
@@ -917,24 +971,82 @@ Stake enforcement will be introduced after analyzing:
 **V2 Considerations:**
 
 ```solidity
-// Future staking logic (pseudocode)
+// Future staking logic (V2 - USDC-based staking)
 
-function registerAgent(...) external {
-    require(msg.value >= MINIMUM_STAKE, "Insufficient stake");
-    // OR: require(USDC.transferFrom(msg.sender, address(this), MINIMUM_STAKE));
+// Governance-adjustable parameter (TBD - will be set via AIP governance process)
+uint256 public minimumStake; // USDC amount (6 decimals), initially 0
+IERC20 public immutable USDC;
 
-    profile.stakedAmount = msg.value;
-    // ...
+function registerAgent(
+    string calldata endpoint,
+    ServiceDescriptor[] calldata serviceDescriptors
+) external nonReentrant {
+    // V2: Transfer USDC stake from registrant to contract
+    if (minimumStake > 0) {
+        require(
+            USDC.transferFrom(msg.sender, address(this), minimumStake),
+            "Stake transfer failed"
+        );
+        agents[msg.sender].stakedAmount = minimumStake;
+    }
+    // ... rest of registration logic
 }
 
-function slashStake(address agent, uint256 amount, bytes32 txId) external onlyKernel {
+function slashStake(
+    address agent,
+    uint256 slashBps, // Basis points (100 = 1%, 1000 = 10%)
+    bytes32 txId,
+    SlashReason reason
+) external onlyKernel {
     AgentProfile storage profile = agents[agent];
-    require(profile.stakedAmount >= amount, "Insufficient stake");
+    uint256 slashAmount = (profile.stakedAmount * slashBps) / 10000;
+    require(slashAmount > 0, "Nothing to slash");
 
-    profile.stakedAmount -= amount;
-    // Transfer slashed amount to consumer or treasury
+    profile.stakedAmount -= slashAmount;
+
+    // Distribution based on incident type (see table below)
+    Transaction storage txn = kernel.getTransaction(txId);
+
+    if (reason == SlashReason.DISPUTE_LOST || reason == SlashReason.SLA_VIOLATION) {
+        // Individual incident: 100% to affected consumer (direct compensation)
+        USDC.safeTransfer(txn.requester, slashAmount);
+    } else {
+        // Systemic/fraud: 100% to treasury (protocol protection)
+        USDC.safeTransfer(feeRecipient, slashAmount);
+    }
+
+    emit StakeSlashed(agent, slashAmount, txId, reason);
 }
 ```
+
+**Slashing Philosophy (Ethereum-inspired):**
+
+Following Vitalik's slashing principles from Ethereum PoS:
+1. **Proportional punishment** - slash in proportion to damage caused
+2. **Consumer compensation first** - individual incidents compensate the affected party
+3. **Protocol protection** - systemic abuse funds go to treasury
+4. **Graceful degradation** - agents can continue with reduced stake
+
+**Slashing Triggers (V2):**
+
+| Trigger | Slash % | Recipient | Rationale |
+|---------|---------|-----------|-----------|
+| **Dispute Lost** (single) | 10% | 100% consumer | Direct compensation for harm |
+| **SLA Violation** (>24h response) | 5% | 100% consumer | Minor penalty, consumer made whole |
+| **Repeated Disputes** (3+ in 30 days) | 50% | 100% treasury | Pattern indicates bad actor |
+| **Fraud/Abuse** (governance) | 100% | 100% treasury | Maximum penalty, protect protocol |
+
+**Stake Parameters (Governance-Controlled):**
+
+| Parameter | V1 Value | V2 Target | Notes |
+|-----------|----------|-----------|-------|
+| `minimumStake` | 0 (disabled) | TBD | Set via AIP governance when network matures |
+| `stakeCooldown` | N/A | 30 days | Time before stake withdrawal allowed |
+| `restakeCooldown` | N/A | 24 hours | Time between restake operations |
+
+**Restaking:**
+- Agents can restake after slash to restore stake level
+- No maximum stake (enables trust tiers in future)
 
 ---
 
@@ -964,11 +1076,17 @@ function slashStake(address agent, uint256 amount, bytes32 txId) external onlyKe
 
 **Key Principle: Arweave-First Write Order**
 
-When archiving a settled transaction:
-
-1. **Write to Arweave FIRST** → Get Arweave TX ID
-2. **Anchor TX ID on-chain** → Immutable reference in `ArchiveTreasury.sol`
-3. IPFS CIDs already exist (from INITIATED/DELIVERED states)
+> **CRITICAL INVARIANT: Arweave-First Write Order**
+>
+> When archiving a settled transaction:
+>
+> 1. **Write to Arweave FIRST** → Get Arweave TX ID
+> 2. **THEN anchor TX ID on-chain** → Immutable reference in `ArchiveTreasury.sol`
+> 3. IPFS CIDs already exist (from INITIATED/DELIVERED states)
+>
+> **NEVER invert this order.** On-chain anchor MUST reference existing Arweave data.
+>
+> Violation of this invariant creates a compliance gap where on-chain records reference non-existent permanent storage.
 
 **Why This Order?**
 
@@ -980,6 +1098,10 @@ When archiving a settled transaction:
 
 - IPFS: Upload → Get CID → Pin (may fail) → Content may disappear
 - Arweave: Upload → Get TX ID → Data is permanent (no pinning needed)
+
+**Failure Isolation:** Archive operations are asynchronous and non-blocking for escrow settlement. If Arweave upload fails, the transaction remains settled on-chain. Archive failures only affect long-term compliance and evidence availability, not fund movement.
+
+**Compliance Note (7-Year Retention):** Once a transaction is archived on Arweave and anchored on-chain via `ArchiveTreasury.anchorArchive()`, the record satisfies the 7-year retention requirement defined in White Paper §8.2. Arweave's permanent storage model (200+ years design guarantee) exceeds regulatory requirements. The on-chain anchor provides cryptographic proof of archive existence and timestamp.
 
 ### 4.2 Filebase Integration (IPFS)
 
@@ -1078,69 +1200,104 @@ console.log('Uploaded to IPFS:', cid);
 
 ### 4.3 Arweave Integration (Permanent Archive)
 
-**Provider:** Bundlr / Irys (Layer 2 for Arweave, instant finality)
+**Provider:** Irys (formerly Bundlr) - Layer 2 for Arweave with instant finality
 
-**Note on Bundlr/Irys Currency Support:**
+**Irys Payment Chain Support:**
 
-Bundlr (now rebranded as Irys) supports specific chains for payment. As of 2024:
-- **Supported**: ethereum, matic (Polygon), arbitrum, avalanche, solana, aptos, near
-- **NOT directly supported**: Base L2
+Irys supports multiple chains for payment. As of November 2025:
 
-**Recommended Approach for AGIRAILS:**
+| Chain | Token | Parameter | AGIRAILS Support |
+|-------|-------|-----------|------------------|
+| **Base** | ETH | `base-eth` | **RECOMMENDED** |
+| Ethereum | ETH | `ethereum` | Supported (expensive) |
+| Polygon | MATIC | `matic` | Supported |
+| Arbitrum | ETH | `arbitrum` | Supported |
+| Ethereum | USDC | `usdc-eth` | Supported |
+| Polygon | USDC | `usdc-polygon` | Supported |
 
-1. **Option A: Use Polygon (matic)** - Low fees, well supported
-2. **Option B: Use Arbitrum** - Similar L2 benefits
-3. **Option C: Direct Arweave uploads** - No Bundlr dependency (slower finality)
+**AGIRAILS V1 Decision: Base ETH**
+
+We use **Base ETH** (`base-eth`) for Irys payments because:
+1. **No bridging required** - Archive Treasury and Uploader stay on Base
+2. **Lowest operational complexity** - Single chain for all operations
+3. **Native to AGIRAILS** - Aligns with our Base L2 deployment
+
+**Funding Flow (V1):**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ARCHIVE FUNDING FLOW                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. Settlement occurs on ACTPKernel                            │
+│     └─► 0.1% of platform fee sent to Archive Treasury          │
+│                                                                 │
+│  2. Archive Treasury (Base) accumulates USDC                   │
+│     └─► Holds funds until withdrawal threshold                 │
+│                                                                 │
+│  3. Periodic funding of Uploader wallet:                       │
+│     Archive Treasury ──USDC──► DEX (Base) ──ETH──► Uploader   │
+│     └─► Swap USDC to ETH on Base DEX (Uniswap, Aerodrome)     │
+│                                                                 │
+│  4. Uploader funds Irys node:                                  │
+│     Uploader wallet ──ETH──► Irys (base-eth) ──► Credit       │
+│                                                                 │
+│  5. Uploader uploads archive bundles:                          │
+│     Archive bundle ──► Irys ──► Arweave (permanent)           │
+│     └─► Returns Arweave TX ID                                  │
+│                                                                 │
+│  6. Uploader anchors on-chain:                                 │
+│     ArchiveTreasury.anchorArchive(txId, arweaveTxId)          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 **SDK Integration:**
 
 ```typescript
 // In @agirails/sdk/storage
 
-import Bundlr from '@bundlr-network/client';
+import Irys from '@irys/sdk';
 
-// Supported Bundlr currencies: https://docs.irys.xyz/overview/supported-tokens
-type BundlrCurrency = 'ethereum' | 'matic' | 'arbitrum' | 'avalanche' | 'solana';
+// Supported Irys tokens: https://docs.irys.xyz/build/d/features/supported-tokens
+type IrysCurrency = 'base-eth' | 'ethereum' | 'matic' | 'arbitrum' | 'usdc-eth' | 'usdc-polygon';
 
 export interface ArweaveConfig {
   privateKey: string;
-  currency: BundlrCurrency; // MUST be supported currency
+  currency: IrysCurrency; // Default: 'base-eth'
   rpcUrl: string;
 }
 
 export class ArweaveClient {
-  private bundlr: Bundlr;
+  private irys: Irys;
 
   constructor(config: ArweaveConfig) {
-    // Validate currency is supported
-    const supportedCurrencies = ['ethereum', 'matic', 'arbitrum', 'avalanche', 'solana'];
-    if (!supportedCurrencies.includes(config.currency)) {
-      throw new Error(`Unsupported Bundlr currency: ${config.currency}. Use one of: ${supportedCurrencies.join(', ')}`);
-    }
+    // Default to Base ETH if not specified
+    const currency = config.currency || 'base-eth';
 
-    this.bundlr = new Bundlr(
-      'https://node2.bundlr.network', // Bundlr/Irys node
-      config.currency, // Payment currency (e.g., 'matic' for Polygon)
-      config.privateKey, // Uploader wallet private key
-      {
-        providerUrl: config.rpcUrl // RPC for the payment chain
+    this.irys = new Irys({
+      network: 'mainnet', // or 'devnet' for testing
+      token: currency,
+      key: config.privateKey,
+      config: {
+        providerUrl: config.rpcUrl
       }
-    );
+    });
   }
 
   /**
-   * Fund the Bundlr node before uploading
+   * Fund the Irys node before uploading
    * Required before first upload
    */
   async fund(amount: bigint): Promise<void> {
-    await this.bundlr.fund(amount);
+    await this.irys.fund(amount);
   }
 
   /**
-   * Check current Bundlr balance
+   * Check current Irys balance
    */
   async getBalance(): Promise<bigint> {
-    const balance = await this.bundlr.getLoadedBalance();
+    const balance = await this.irys.getLoadedBalance();
     return BigInt(balance.toString());
   }
 
@@ -1153,8 +1310,8 @@ export class ArweaveClient {
     const jsonString = JSON.stringify(bundle);
     const buffer = Buffer.from(jsonString, 'utf-8');
 
-    // Upload to Arweave via Bundlr
-    const tx = await this.bundlr.upload(buffer, {
+    // Upload to Arweave via Irys
+    const tx = await this.irys.upload(buffer, {
       tags: [
         { name: 'Content-Type', value: 'application/json' },
         { name: 'Protocol', value: 'AGIRAILS' },
@@ -1671,6 +1828,63 @@ class DeadLetterQueue {
 
 ## 5. Archive Treasury Contract
 
+### 5.0 Fee Flow Architecture
+
+The following diagram shows how protocol fees flow from settlement to permanent archive:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        PROTOCOL FEE DISTRIBUTION                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Transaction Settlement (ACTPKernel.releaseEscrow)                         │
+│  ─────────────────────────────────────────────────                         │
+│                                                                             │
+│  Example: $100 transaction @ 1% platform fee = $1.00 fee                   │
+│                                                                             │
+│                    ┌──────────────────────┐                                │
+│                    │   Platform Fee       │                                │
+│                    │      $1.00           │                                │
+│                    └──────────┬───────────┘                                │
+│                               │                                            │
+│              ┌────────────────┴────────────────┐                           │
+│              │                                 │                           │
+│              ▼                                 ▼                           │
+│  ┌───────────────────────┐      ┌───────────────────────┐                 │
+│  │   Protocol Treasury   │      │   Archive Treasury    │                 │
+│  │       99.9%           │      │       0.1%            │                 │
+│  │      $0.999           │      │      $0.001           │                 │
+│  └───────────────────────┘      └───────────┬───────────┘                 │
+│              │                               │                            │
+│              │                               │ (accumulates)              │
+│              ▼                               ▼                            │
+│  ┌───────────────────────┐      ┌───────────────────────┐                 │
+│  │  Operations, Audits,  │      │  Periodic Withdrawal  │                 │
+│  │  Development, etc.    │      │  by Uploader Service  │                 │
+│  └───────────────────────┘      └───────────┬───────────┘                 │
+│                                             │                             │
+│                                             │ USDC → ETH (DEX swap)       │
+│                                             ▼                             │
+│                                 ┌───────────────────────┐                 │
+│                                 │  Fund Irys (Base ETH) │                 │
+│                                 └───────────┬───────────┘                 │
+│                                             │                             │
+│                                             │ Upload archive bundles      │
+│                                             ▼                             │
+│                                 ┌───────────────────────┐                 │
+│                                 │  Arweave (Permanent)  │                 │
+│                                 │  via Irys/Bundlr      │                 │
+│                                 └───────────────────────┘                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Points:**
+- Archive allocation is **0.1% of the platform fee** (not 0.1% of transaction value)
+- At $10M monthly GMV with 1% fee = $100K fees → $100 to Archive Treasury
+- Archive Treasury accumulates USDC, swaps to ETH when funding Irys
+- One Arweave upload (~1KB) costs ~$0.0001, so $100 archives ~1M transactions
+
 ### 5.1 Contract Interface
 
 **File:** `src/treasury/ArchiveTreasury.sol`
@@ -1963,7 +2177,7 @@ class ArchiveUploaderService {
     const bundle: ArchiveBundle = {
       protocolVersion: '1.0.0',
       archiveSchemaVersion: '1.0.0',
-      type: 'actp.archive.v1',
+      type: 'actp.archive.v1.minimal',
       txId: txId,
       chainId: (await this.kernel.provider.getNetwork()).chainId,
       archivedAt: Math.floor(Date.now() / 1000),
@@ -2701,7 +2915,7 @@ const did = 'did:ethr:84532:0x742d35cc6634c0532925a3b844bc9e7595f0beb';
 {
   "protocolVersion": "1.0.0",
   "archiveSchemaVersion": "1.0.0",
-  "type": "actp.archive.v1",
+  "type": "actp.archive.v1.minimal",
   "txId": "0x7d87c3b8e23a5c9d1f4e6b2a8c5d9e3f1a7b4c6d8e2f5a3b9c1d7e4f6a8b2c5d",
   "chainId": 8453,
   "archivedAt": 1732150000
@@ -2711,7 +2925,7 @@ const did = 'did:ethr:84532:0x742d35cc6634c0532925a3b844bc9e7595f0beb';
 **Canonical JSON:**
 
 ```
-{"archiveSchemaVersion":"1.0.0","archivedAt":1732150000,"chainId":8453,"protocolVersion":"1.0.0","txId":"0x7d87c3b8e23a5c9d1f4e6b2a8c5d9e3f1a7b4c6d8e2f5a3b9c1d7e4f6a8b2c5d","type":"actp.archive.v1"}
+{"archiveSchemaVersion":"1.0.0","archivedAt":1732150000,"chainId":8453,"protocolVersion":"1.0.0","txId":"0x7d87c3b8e23a5c9d1f4e6b2a8c5d9e3f1a7b4c6d8e2f5a3b9c1d7e4f6a8b2c5d","type":"actp.archive.v1.minimal"}
 ```
 
 **Expected Keccak256 Hash:**
@@ -2722,7 +2936,7 @@ const did = 'did:ethr:84532:0x742d35cc6634c0532925a3b844bc9e7595f0beb';
 
 ### 9.3 Service Type Hash Test
 
-**Input:**
+**Positive Test (Correct Hash):**
 
 ```typescript
 const serviceType = 'text-generation';
@@ -2735,6 +2949,35 @@ const serviceTypeHash = ethers.utils.keccak256(
 
 ```
 0x9c22ff5f21f0b81b113e63f7db6da94fedef11b2119b4088b89664fb9a3cb658
+```
+
+**Negative Test (Wrong Case - Common Error):**
+
+```typescript
+// WRONG: Using uppercase - will NOT match any registered agents
+const wrongServiceType = 'Text-Generation'; // Capital T and G
+const wrongHash = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes(wrongServiceType)
+);
+
+// Expected: 0x... (different hash)
+// Query with this hash will return 0 results
+```
+
+**Why This Matters:**
+
+Service type strings are **case-sensitive** when hashed. The contract enforces lowercase during registration (see §3.2), but SDK clients must hash correctly when querying.
+
+```typescript
+// Correct pattern in SDK:
+function normalizeServiceType(serviceType: string): string {
+  return serviceType.toLowerCase().trim();
+}
+
+const hash = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes(normalizeServiceType('Text-Generation'))
+);
+// Now returns: 0x9c22ff5f21f0b81b113e63f7db6da94fedef11b2119b4088b89664fb9a3cb658
 ```
 
 ---
