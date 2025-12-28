@@ -1539,6 +1539,4 @@ Licensed under Apache-2.0.
 10. ❌ TODO: Update AIP-0 schema registry with computed type hash
 11. ❌ TODO: Add on-chain EAS validation in contract V2
 
-**Contact for Questions:**
-- Protocol Team: team@agirails.io
-- Security Issues: security@agirails.io
+**Contact**: [agirails.io/contact](https://agirails.io/contact)

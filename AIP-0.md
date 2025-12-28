@@ -37,7 +37,7 @@
 - AIP-5 (Dispute): `0x118a9fe5aef5b766734aa976f70c90a40c4c1144c599a0405a60c18199f9ee66`
 - AIP-6 (Resolution): `0x4312d59902c52428cc3c348e24d4b7b3922b50e0e2c9f8a16ee504f5ec6d1fc2`
 
-**Verification Script**: `/Users/damir/Cursor/AGIRails MVP/AGIRAILS/Protocol/aips/compute-type-hashes.js`
+**Verification Script**: `./compute-type-hashes.js` (in aips/ directory)
 
 **Impact**: ✅ No longer blocks mainnet deployment - message type registry complete.
 
@@ -906,13 +906,13 @@ The notification message format (§2.1) is critical infrastructure but was initi
    - [ ] Add deployed contract addresses (§2.2)
    - [ ] Verify state machine matches deployed contract (§4.1)
 
-**Schema File Locations (Placeholder Links):**
+**Schema File Locations:**
 
-Once created, schemas will be available at:
-- [AIP-1 Request JSON Schema](./schemas/aip-1-request.schema.json) ← TODO: Create file
-- [AIP-1 Request EIP-712 Types](./schemas/aip-1-request.eip712.json) ← TODO: Create file
-- [AIP-4 Delivery JSON Schema](./schemas/aip-4-delivery.schema.json) ← TODO: Create file
-- [AIP-4 Delivery EIP-712 Types](./schemas/aip-4-delivery.eip712.json) ← TODO: Create file
+Schema files will be added to `./schemas/` directory when finalized:
+- `aip-1-request.schema.json` - AIP-1 Request JSON Schema
+- `aip-1-request.eip712.json` - AIP-1 Request EIP-712 Types
+- `aip-4-delivery.schema.json` - AIP-4 Delivery JSON Schema
+- `aip-4-delivery.eip712.json` - AIP-4 Delivery EIP-712 Types
 
 ### 5.3 Schema Definitions
 
@@ -1499,7 +1499,7 @@ AGIRAILS contracts are **NOT upgradeable** (no proxy patterns):
 ### 10.1 AIP Editors
 
 Current AIP editors (responsible for reviewing and merging AIPs):
-- Damir Mujic (AGIRAILS Founder)
+- Protocol Lead (AGIRAILS Core Team)
 - [Open seat - community nomination]
 
 ### 10.2 Submission Process

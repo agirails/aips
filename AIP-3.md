@@ -2290,7 +2290,4 @@ it('should handle front-running gracefully', async () => {
 2. Create end-to-end integration tests on testnet
 3. Document gas optimization strategies for high-volume use cases
 
-**Contact:**
-- Protocol Team: team@agirails.io
-- Developer Support: developers@agirails.io
-- Security Issues: security@agirails.io
+**Contact**: [agirails.io/contact](https://agirails.io/contact)

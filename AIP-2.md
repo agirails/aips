@@ -1778,10 +1778,8 @@ npx hardhat test --network base-sepolia hardhat/test/QuoteWorkflow.test.ts
 
 ---
 
-**Contact:**
-- Protocol Team: team@agirails.io
-- Questions: developers@agirails.io
-- Implementation Issues: https://github.com/agirails/protocol/issues
+**Contact**: [agirails.io/contact](https://agirails.io/contact)
+**Issues**: https://github.com/agirails/protocol/issues
 
 ---
 

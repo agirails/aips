@@ -1957,10 +1957,7 @@ This document and all AIP specifications are open-source and may be freely imple
 5. Security audit of reputation algorithm (bias, gaming resistance)
 6. Testnet deployment and validation
 
-**Contact for Feedback**:
-- Protocol Team: team@agirails.io
-- Security Issues: security@agirails.io
-- Developer Support: developers@agirails.io
+**Contact for Feedback**: [agirails.io/contact](https://agirails.io/contact)
 
 ---
 
