@@ -3,7 +3,7 @@
 **Status:** Implemented
 **Author:** AGIRAILS Core Team
 **Created:** 2025-11-16
-**Updated:** 2025-11-24
+**Updated:** 2025-12-28
 
 ---
 
@@ -53,68 +53,56 @@ AIP-0 serves as the foundational specification for off-chain coordination betwee
 
 ## Deployment Status & Critical Dependencies
 
-**⚠️ TESTNET DEPLOYMENT INCOMPLETE - AIP-0 is NOT yet actionable for implementation**
+**✅ TESTNET DEPLOYMENT COMPLETE - AIP-0 is fully actionable for implementation**
 
-### Blocking Items (Must Complete Before Implementation)
+### Deployment Checklist (All Complete)
 
-| Item | Status | Owner | Deadline | Blocks |
-|------|--------|-------|----------|--------|
-| **Deploy ACTP Kernel** (Base Sepolia) | ❌ TODO | Core Team | ASAP | All operations |
-| **Deploy Escrow Vault** (Base Sepolia) | ❌ TODO | Core Team | ASAP | Payment flow |
-| **Deploy Mock USDC** (Base Sepolia) | ❌ TODO | Core Team | ASAP | Escrow funding |
-| **Create AIP-1 Schema** (Request Metadata) | ✅ DONE | Protocol Team | 2025-11-16 | N/A |
-| **Create AIP-4 Schema** (Delivery Proof) | ✅ DONE | Protocol Team | 2025-11-16 | N/A |
-| **Deploy EAS Schema** (AIP-4, Base Sepolia) | ⚠️ READY | User | ASAP | Provider node |
-| **Update AIP-0 Contract Addresses** | ❌ TODO | Protocol Team | Post-deploy | SDK init |
-| **Implement SDK RequestBuilder** | ⚠️ PARTIAL | SDK Team | TBD | n8n node |
-| **Implement SDK MessageSigner** | ✅ DONE | SDK Team | 2025-11-15 | N/A |
-| **Implement SDK DeliveryProofBuilder** | ✅ DONE | SDK Team | 2025-11-16 | N/A |
+| Item | Status | Completed | Notes |
+|------|--------|-----------|-------|
+| **Deploy ACTP Kernel** (Base Sepolia) | ✅ DONE | 2025-01-22 | Verified on Basescan |
+| **Deploy Escrow Vault** (Base Sepolia) | ✅ DONE | 2025-01-22 | Verified on Basescan |
+| **Deploy Mock USDC** (Base Sepolia) | ✅ DONE | 2025-01-22 | Verified on Basescan |
+| **Create AIP-1 Schema** (Request Metadata) | ✅ DONE | 2025-11-16 | JSON Schema + EIP-712 |
+| **Create AIP-4 Schema** (Delivery Proof) | ✅ DONE | 2025-11-16 | JSON Schema + EIP-712 |
+| **Deploy EAS Schema** (AIP-4, Base Sepolia) | ✅ DONE | 2025-11-23 | UID in AIP-4 §4.1 |
+| **Update AIP-0 Contract Addresses** | ✅ DONE | 2025-01-22 | See §Implementation Status |
+| **Implement SDK RequestBuilder** | ⚠️ PARTIAL | - | n8n integration pending |
+| **Implement SDK MessageSigner** | ✅ DONE | 2025-11-15 | Fully tested |
+| **Implement SDK DeliveryProofBuilder** | ✅ DONE | 2025-11-16 | With EAS integration |
 
 ### Implementation Readiness
 
-**Current Status:** ✅ **Schemas & SDK Complete - Ready for Contract Deployment**
+**Current Status:** ✅ **FULLY OPERATIONAL - Testnet Live**
 
 **What's Complete:**
-1. ✅ JSON Schema files for AIP-1 (Request Metadata) - `/docs/schemas/aip-1-request.schema.json`
-2. ✅ JSON Schema files for AIP-4 (Delivery Proof) - `/docs/schemas/aip-4-delivery.schema.json`
-3. ✅ EIP-712 type definitions for all message types - `/docs/schemas/*.eip712.json`
-4. ✅ SDK DeliveryProofBuilder implemented - `/sdk/src/builders/DeliveryProofBuilder.ts`
-5. ✅ SDK MessageSigner implemented - `/sdk/src/protocol/MessageSigner.ts`
-6. ✅ Canonical JSON library integrated - `fast-json-stable-stringify@^2.1.0`
-7. ✅ IPFS Client implemented - `/sdk/src/utils/IPFSClient.ts`
-8. ✅ Nonce Manager implemented - `/sdk/src/utils/NonceManager.ts`
-9. ✅ Test suite (49 tests passing) - `/sdk/src/__tests__/`
-10. ✅ EAS Schema deployment script - `/sdk/scripts/deployEASSchema.ts`
+1. ✅ Smart contracts deployed and verified on Base Sepolia (2025-01-22)
+2. ✅ JSON Schema files for AIP-1 (Request Metadata) - `/docs/schemas/aip-1-request.schema.json`
+3. ✅ JSON Schema files for AIP-4 (Delivery Proof) - `/docs/schemas/aip-4-delivery.schema.json`
+4. ✅ EIP-712 type definitions for all message types - `/docs/schemas/*.eip712.json`
+5. ✅ SDK DeliveryProofBuilder implemented - `/sdk/src/builders/DeliveryProofBuilder.ts`
+6. ✅ SDK MessageSigner implemented - `/sdk/src/protocol/MessageSigner.ts`
+7. ✅ Canonical JSON library integrated - `fast-json-stable-stringify@^2.1.0`
+8. ✅ IPFS Client implemented - `/sdk/src/utils/IPFSClient.ts`
+9. ✅ Nonce Manager implemented - `/sdk/src/utils/NonceManager.ts`
+10. ✅ Test suite (50+ tests passing) - `/sdk/src/__tests__/`
+11. ✅ EAS Schema deployed - UID in AIP-4 §4.1
+12. ✅ SDK client-side attestation verification (EASHelper) - AIP-4 V1 mitigation
 
-**What's Still Missing:**
-1. ❌ Actual smart contract addresses (using placeholders `<PENDING_DEPLOYMENT>`)
-2. ❌ ACTP Kernel deployed to Base Sepolia
-3. ❌ Escrow Vault deployed to Base Sepolia
-4. ❌ Mock USDC deployed to Base Sepolia
-5. ⚠️ EAS Schema UID (deployment script ready, needs execution)
-6. ⚠️ SDK RequestBuilder (partial implementation exists)
-
-**What Works:**
+**What's Operational:**
 - ✅ Identity framework (DIDs, verification flow)
 - ✅ Transport options (IPFS, webhooks, queues)
-- ✅ State machine design (contract verified)
+- ✅ State machine (8 states, fully tested)
 - ✅ Security model (EIP-712 + replay protection)
 - ✅ Versioning strategy
 - ✅ Delivery proof system (end-to-end)
 - ✅ Canonical JSON hashing (cross-language compatible)
+- ✅ Escrow and payment flow
+- ✅ Platform fee collection (1% with $0.05 minimum)
 
-**Next Steps:**
-1. Deploy testnet contracts (ACTPKernel, EscrowVault, Mock USDC) → 1-2 hours
-2. Deploy EAS schema (run `/sdk/scripts/deployEASSchema.ts`) → 5 minutes
-3. Update §2.2 with actual contract addresses → 5 minutes
-4. Update AIP-0 Schema Registry (§5.2) with deployed schema UIDs → 5 minutes
-5. Test end-to-end workflow on testnet → 1 hour
-
-**Timeline Estimate:**
-- ✅ AIP-1 + AIP-4 specs: **COMPLETE**
-- ✅ SDK implementation: **COMPLETE**
-- ⏳ Contract deployment: **2-3 hours** (user action required)
-- **Total: ~3 hours until fully actionable**
+**Remaining Items:**
+1. ⚠️ SDK RequestBuilder (partial implementation exists)
+2. ⚠️ On-chain EAS validation in Contract V2 (V1 uses SDK-side validation)
+3. ⚠️ n8n community node integration
 
 ---
 
@@ -394,7 +382,8 @@ fee = max(transactionAmount * 0.01, $0.05)
    - See §8.5 for admin security features
 
 **Fee Distribution:**
-- 100% of platform fees go to `feeRecipient` address (configurable by admin)
+- Platform fees: `feeRecipient` address (configurable by admin)
+- Archive allocation: 0.1% of platform fees → Archive Treasury (for permanent storage - see AIP-7)
 - Future: May split between treasury, node operators, and staking rewards
 
 **Spam Prevention:**
@@ -402,6 +391,24 @@ The $0.05 minimum prevents dust attack economics:
 - Without minimum: 100,000 × $0.01 transaction = $1,000 revenue, massive state bloat
 - With $0.05 minimum: Attacker pays $5,000 in fees for same attack
 - Encourages batching small transactions into larger ones
+
+**Protocol Constants (ACTPKernel.sol):**
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `MIN_TRANSACTION_AMOUNT` | 50,000 (USDC wei) | $0.05 anti-spam minimum |
+| `MAX_TRANSACTION_AMOUNT` | 1,000,000,000 × 10^6 | 1B USDC ceiling |
+| `MAX_DEADLINE` | 365 days | Maximum transaction lifetime |
+| `DEFAULT_DISPUTE_WINDOW` | 2 days | Default dispute window if not specified |
+| `MIN_DISPUTE_WINDOW` | 1 hour | Minimum dispute window |
+| `MAX_DISPUTE_WINDOW` | 30 days | Maximum dispute window |
+| `MAX_BPS` | 10,000 | Basis points denominator |
+| `MAX_PLATFORM_FEE_CAP` | 500 (5%) | Maximum platform fee |
+| `MAX_REQUESTER_PENALTY_CAP` | 5,000 (50%) | Maximum cancellation penalty |
+| `MAX_MEDIATOR_FEE_BPS` | 1,000 (10%) | Maximum mediator fee percentage |
+| `ECONOMIC_PARAM_DELAY` | 2 days | Timelock for fee/penalty changes |
+| `MEDIATOR_APPROVAL_DELAY` | 2 days | Timelock for mediator re-approval |
+| `ARCHIVE_ALLOCATION_BPS` | 10 (0.1%) | Archive treasury allocation from fees |
 
 ### 2.4 Encryption (Optional)
 
@@ -426,8 +433,53 @@ AIP messages MUST reference on-chain ACTP transactions using the following ident
 - **Purpose:** Primary key for all ACTP state transitions
 - **Example:** `0x7d87c3b8e23a5c9d1f4e6b2a8c5d9e3f1a7b4c6d8e2f5a3b9c1d7e4f6a8b2c5d`
 
+**Nonce-Based Generation (Collision Prevention):**
+
+Transaction IDs are generated using a nonce-based hashing mechanism to prevent collisions when identical parameters are used:
+
+```solidity
+// In ACTPKernel.createTransaction()
+_nextNonce++;
+bytes32 transactionId = keccak256(abi.encodePacked(requester, provider, _nextNonce));
+```
+
+**Benefits:**
+- Prevents collision when same requester/provider create multiple identical transactions
+- Enables duplicate service requests with different `txId`s
+- Monotonically increasing nonce ensures uniqueness
+
 **Usage in AIP Messages:**
 All AIP messages (request metadata, delivery proofs, dispute evidence) MUST include `txId` to link off-chain data to on-chain transaction state.
+
+### 3.1.1 Transaction Struct
+
+The on-chain Transaction struct contains the following fields:
+
+```solidity
+struct Transaction {
+    bytes32 transactionId;           // Unique transaction identifier
+    address requester;               // Service requester (consumer)
+    address provider;                // Service provider
+    State state;                     // Current state (0-7)
+    uint256 amount;                  // Transaction amount in USDC (6 decimals)
+    uint256 createdAt;               // Creation timestamp
+    uint256 updatedAt;               // Last update timestamp
+    uint256 deadline;                // Transaction deadline (must complete by)
+    bytes32 serviceHash;             // Hash of service agreement
+    address escrowContract;          // Linked escrow vault address
+    bytes32 escrowId;                // Escrow ID in vault
+    bytes32 attestationUID;          // EAS attestation UID (post-settlement)
+    uint256 disputeWindow;           // Dispute window expiry timestamp
+    bytes32 metadata;                // Protocol metadata (e.g., AIP-2 quote hash)
+    uint16 platformFeeBpsLocked;     // Platform fee locked at creation (AIP-5)
+    bool wasDisputed;                // Track if went through dispute (AIP-7)
+}
+```
+
+**Key Fields:**
+- `platformFeeBpsLocked` (AIP-5): Fee percentage locked at creation, not affected by later `scheduleEconomicParams()` calls
+- `wasDisputed` (AIP-7): Used for reputation scoring - disputed transactions may affect agent reputation differently
+- `metadata`: Stores AIP-2 quote hash when provider submits quote before commitment
 
 ### 3.2 Metadata Hash (`metadataHash`)
 
@@ -772,12 +824,19 @@ The state machine documented above has been verified against the actual Solidity
 | `scheduleEconomicParams()` | Admin only | 2-day timelock before execution | - |
 | `executeEconomicParamsUpdate()` | Anyone | Can only execute after 2-day delay | - |
 | `cancelEconomicParamsUpdate()` | Admin only | Cancel pending fee change | - |
+| `getPendingEconomicParams()` | Anyone (view) | Check pending economic parameter changes | - |
 | `scheduleEmergencyWithdraw()` | Admin only | 7-day timelock before execution | - |
 | `executeEmergencyWithdraw()` | Admin only | Can only execute after 7-day delay | - |
 | `setFeeRecipient()` | Admin only | Immediate effect (only affects new fee accrual) | - |
-| `setPauser()` | Admin only | Change pauser address | - |
-| `transferAdmin()` | Admin only | Transfer admin role (may have timelock) | - |
-| `approveEscrowVault()` | Admin only | Whitelist escrow vault contracts | - |
+| `updatePauser()` | Admin only | Change pauser address | - |
+| `transferAdmin()` | Admin only | 2-step admin transfer (initiate + accept) | - |
+| `acceptAdmin()` | Pending admin only | Accept admin role after transfer initiated | - |
+| `approveEscrowVault()` | Admin only | Whitelist/revoke escrow vault contracts | - |
+| `approveMediator()` | Admin only | **[C-1]** 2-day timelock for re-approval after revocation | AIP-5 |
+| `scheduleAgentRegistryUpdate()` | Admin only | **[AIP-7]** 2-day timelock for registry upgrade | AIP-7 |
+| `cancelAgentRegistryUpdate()` | Admin only | Cancel pending registry upgrade | AIP-7 |
+| `executeAgentRegistryUpdate()` | Anyone | Execute after 2-day delay | AIP-7 |
+| `setArchiveTreasury()` | Admin only | **[AIP-7]** Set archive treasury address (0.1% fee allocation) | AIP-7 |
 
 ### 4.2 Message Flow Table
 
@@ -808,6 +867,44 @@ The state machine documented above has been verified against the actual Solidity
 8. **CANCELLED only possible before DELIVERED** (refund requester if work never completed)
 9. **QUOTED state is optional** - consumer can skip directly from INITIATED → COMMITTED via linkEscrow()
 10. **IN_PROGRESS state is optional** - provider can skip directly from COMMITTED → DELIVERED
+11. **[H-4] Requester cannot cancel from IN_PROGRESS** - only provider can cancel after work started (prevents griefing)
+
+### 4.4 Locked Platform Fee (AIP-5 Integration)
+
+The platform fee percentage is **locked at transaction creation time** via the `platformFeeBpsLocked` field in the Transaction struct. This ensures fee predictability and prevents mid-transaction fee changes.
+
+**Implementation:**
+```solidity
+struct Transaction {
+    // ... other fields ...
+    uint16 platformFeeBpsLocked;  // Fee % locked at creation (AIP-5)
+}
+```
+
+**Rationale:**
+- Fee commitment at creation time protects both parties
+- Subsequent `scheduleEconomicParams()` calls do NOT affect existing transactions
+- Only new transactions use the updated fee after 2-day timelock
+
+**Fee Calculation:**
+- Platform fee: `max(amount * platformFeeBpsLocked / 10000, MIN_FEE)` where `MIN_FEE = $0.05`
+- Locked fee is used for all settlement calculations, milestone releases, and cancellation penalties
+
+See **AIP-5 (Settlement)** for full fee distribution and settlement specification.
+
+### 4.5 Agent Registry Integration (AIP-7)
+
+The ACTP Kernel integrates with the Agent Registry for reputation tracking:
+
+**Implementation:**
+- `wasDisputed` boolean tracks whether transaction went through dispute (affects reputation)
+- `scheduleAgentRegistryUpdate()` allows registry upgrade with 2-day timelock
+- On settlement, kernel calls `IAgentRegistry.updateReputationOnSettlement()` to record transaction outcome
+
+**Security Fixes:**
+- **[C-2] Reputation double-counting prevention**: Tracks which registry version processed each transaction, preventing replay on registry upgrade
+
+See **AIP-7 (Agent Identity, Registry & Storage)** for full specification.
 
 ---
 
@@ -1434,12 +1531,28 @@ Function: `setFeeRecipient(address newRecipient)`
 All admin actions emit events that MUST be monitored:
 
 ```solidity
+// Admin & Governance Events
 event EconomicParamsUpdateScheduled(uint16 newPlatformFeeBps, uint16 newRequesterPenaltyBps, uint256 executeAfter);
+event EconomicParamsUpdated(uint16 platformFeeBps, uint16 requesterPenaltyBps, uint256 timestamp);
+event EconomicParamsUpdateCancelled(uint16 pendingPlatformFeeBps, uint16 pendingRequesterPenaltyBps, uint256 timestamp);
 event EmergencyWithdrawScheduled(address indexed token, address indexed to, uint256 amount, uint256 executeAfter);
-event MediatorApprovalScheduled(address indexed mediator, bool approved, uint256 executeAfter);
+event MediatorApproved(address indexed mediator, bool approved);
 event KernelPaused(address indexed by, uint256 timestamp);
 event KernelUnpaused(address indexed by, uint256 timestamp);
 event AdminTransferred(address indexed oldAdmin, address indexed newAdmin);
+event PauserUpdated(address indexed oldPauser, address indexed newPauser);
+event FeeRecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
+event EscrowVaultApproved(address indexed vault, bool approved);
+
+// Agent Registry Events (AIP-7)
+event AgentRegistryUpdateScheduled(address indexed newRegistry, uint256 executeAfter);
+event AgentRegistryUpdateCancelled(address indexed newRegistry, uint256 timestamp);
+event AgentRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
+
+// Archive Treasury Events (AIP-7)
+event ArchiveTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
+event ArchiveTreasuryFailed(bytes32 indexed txId, uint256 amount, bytes reason);
+event ArchivePayoutMismatch(bytes32 indexed txId, uint256 expected, uint256 actual);
 ```
 
 **Monitoring Best Practices:**
@@ -1450,6 +1563,63 @@ event AdminTransferred(address indexed oldAdmin, address indexed newAdmin);
    - Emergency withdrawal: Critical alert
    - Pause event: Stop all new transactions
 3. **Community Governance**: Future DAO can veto malicious admin actions via on-chain vote
+
+### 8.6 Escrow Security Enhancements
+
+AGIRAILS implements additional security measures for escrow operations:
+
+**[H-1] Archive Treasury Failure Protection:**
+
+All escrow vault transfers are wrapped in try-catch to prevent fund loss:
+
+```solidity
+// If archive treasury transfer fails, redirect to main fee recipient
+try escrowVault.transfer(archiveTreasury, archiveAmount) {
+    // Success
+} catch (bytes memory reason) {
+    // Clear dangling approval
+    // Redirect to main fee recipient
+    emit ArchiveTreasuryFailed(txId, archiveAmount, reason);
+}
+```
+
+**Purpose**: Prevents permanent fund lock if archive treasury is compromised or misconfigured.
+
+**[H-3] Permanent Escrow ID Tracking:**
+
+Escrow IDs are **intentionally NOT cleared** after use:
+
+```solidity
+// _clearUsedEscrowId() is DISABLED
+// Each escrowId can only be used ONCE (permanent tracking)
+```
+
+**Purpose**: Prevents escrow ID reuse attacks that could lead to double-spending. Storage is cheap on L2; security is priceless.
+
+**[C-1] Mediator Timelock Bypass Prevention:**
+
+The contract tracks both approval and revocation timestamps:
+
+```solidity
+mapping(address => uint256) public mediatorApprovedAt;
+mapping(address => uint256) public mediatorRevokedAt;
+```
+
+**Purpose**: Prevents revoke-and-reapprove attack to bypass timelock. Cooling period enforced after revocation.
+
+### 8.7 Reputation Security (AIP-7 Integration)
+
+**[C-2] Reputation Double-Counting Prevention:**
+
+The kernel tracks which registry version processed each transaction:
+
+```solidity
+mapping(bytes32 => address) public txIdToRegistryVersion;
+```
+
+**Purpose**: Prevents replay of reputation updates when the Agent Registry is upgraded. Each transaction is only processed by one registry version.
+
+**Implementation**: Uses try-catch with 150k gas limit for AgentRegistry calls to prevent griefing.
 
 **Immutability vs Upgradeability:**
 
