@@ -3,7 +3,7 @@
 **Status:** Implemented
 **Author:** AGENTIOS AIP Writer Agent
 **Created:** 2025-01-18
-**Updated:** 2025-11-24
+**Updated:** 2025-12-28
 **Depends On:** AIP-0 (Meta Protocol), AIP-3 (Commitment & Escrow), AIP-4 (Delivery & Verification)
 
 ---
@@ -1014,6 +1014,8 @@ txn.platformFeeBpsLocked = platformFeeBps;  // Locked at creation
 - Admin cannot manipulate fees on existing transactions
 
 **Status:** Vulnerability RESOLVED in V1 deployment
+
+**Cross-Reference:** See **AIP-0 §4.4 Locked Platform Fee** for full specification of the `platformFeeBpsLocked` field and its role in the Transaction struct.
 
 **Attack Vector 2: Rounding Errors Accumulate Dust**
 

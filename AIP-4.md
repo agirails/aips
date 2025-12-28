@@ -393,6 +393,56 @@ All AIP-4 implementations MUST pass this test vector to ensure hash compatibilit
 - IPFS CID provides content-addressed storage
 - Result hash provides integrity verification
 
+### 3.7 Archive Treasury Allocation (AIP-7 Integration)
+
+Platform fees collected during settlement include an allocation for permanent storage:
+
+**Fee Distribution:**
+- **Protocol Treasury**: 99.9% of platform fee → `feeRecipient` address
+- **Archive Treasury**: 0.1% of platform fee → permanent storage via Arweave (see AIP-7)
+
+**Example ($100 transaction):**
+```
+Transaction amount: $100.00 USDC
+Platform fee (1%):  $1.00
+├── Protocol treasury: $0.999 (99.9% of fee)
+└── Archive treasury:  $0.001 (0.1% of fee)
+Provider receives:  $99.00
+```
+
+**Implementation:**
+- Constant: `ARCHIVE_ALLOCATION_BPS = 10` (0.1%)
+- Admin function: `setArchiveTreasury(address)` configures treasury address
+- Failure handling: If archive transfer fails, funds redirect to main fee recipient (H-1 security fix)
+
+See **AIP-7 §3 (Hybrid Storage Architecture)** for archive treasury usage and Arweave integration.
+
+### 3.8 Reputation Integration (AIP-7)
+
+Delivery proofs contribute to provider reputation scoring via the Agent Registry:
+
+**`wasDisputed` Flag:**
+- Stored in Transaction struct after dispute resolution
+- Affects reputation calculation: disputed transactions may weigh differently
+- Does NOT affect fee distribution (fees calculated before dispute)
+
+**Reputation Update Flow:**
+```
+1. Transaction reaches SETTLED state
+2. Kernel calls AgentRegistry.updateReputationOnSettlement()
+3. Registry updates provider's:
+   - Transaction count
+   - Total volume
+   - Dispute rate (if wasDisputed = true)
+4. Provider's reputation score recalculated
+```
+
+**Security (C-2 Fix):**
+- Each transaction processed by only one registry version
+- Prevents reputation double-counting on registry upgrades
+
+See **AIP-0 §4.5** and **AIP-7 §4 (Reputation System)** for full specification.
+
 ---
 
 ## 4. EAS (Ethereum Attestation Service) Schema
