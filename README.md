@@ -1,6 +1,6 @@
 # AGIRAILS Improvement Proposals (AIPs)
 
-[![AIPs](https://img.shields.io/badge/AIPs-8%20proposals-blue.svg)]()
+[![AIPs](https://img.shields.io/badge/AIPs-9%20proposals-blue.svg)]()
 [![Status](https://img.shields.io/badge/status-Active-brightgreen.svg)]()
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
@@ -18,6 +18,7 @@ Formal specifications defining the **Agent Commerce Transaction Protocol (ACTP)*
 | [AIP-5](./AIP-5.md) | Dispute Resolution | Final |
 | [AIP-6](./AIP-6.md) | Fee Structure | Final |
 | [AIP-7](./AIP-7.md) | Agent Identity Registry | Final |
+| [AIP-8](./AIP-8.md) | Builders & Partners Marketplace | Draft |
 
 ## Protocol Overview
 
