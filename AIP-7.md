@@ -362,6 +362,20 @@ interface IAgentRegistry {
         // tokenId = uint256(uint160(agentAddress))
     }
 
+    /// @notice Minimal agent info for badge eligibility (AIP-10)
+    /// @dev Subset of AgentProfile to avoid ABI mismatch issues
+    struct AgentBadgeInfo {
+        uint256 registeredAt;       // For AGENT_LIVE_60 age check
+        uint256 reputationScore;    // For future reputation-gated badges
+        uint256 totalTransactions;  // For activity verification
+        bool isActive;              // Must be active to claim badges
+    }
+
+    /// @notice Get minimal agent info for badge eligibility checks
+    /// @param agent Agent address
+    /// @return info AgentBadgeInfo struct with only badge-relevant fields
+    function getAgentForBadges(address agent) external view returns (AgentBadgeInfo memory);
+
     /// @notice Service descriptor metadata (stored off-chain, hash on-chain)
     struct ServiceDescriptor {
         bytes32 serviceTypeHash;        // keccak256(lowercase(serviceType)) - MUST be lowercase

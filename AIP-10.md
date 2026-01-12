@@ -52,6 +52,15 @@ Badges provide:
 > - To re-claim, agents must meet thresholds again
 > - Inactive agents will fail to grow lifetime stats → cannot re-claim
 > - This achieves similar anti-gaming properties with simpler on-chain logic
+>
+> **Known Limitation**: Once lifetime thresholds are reached, a builder can re-claim
+> indefinitely even with zero recent activity. The badge expiry creates periodic
+> "checkpoints" where inactive builders lose their visual trust signal, but does not
+> prevent eventual re-claim.
+>
+> **Future (V2)**: True time-windowed eligibility via:
+> - On-chain `lastTransactionAt` timestamp with 90-day recency check, OR
+> - Off-chain indexer verification with EAS attestation for rolling window stats
 
 ### 1.3 Design Philosophy
 
@@ -379,7 +388,20 @@ contract AgentBadges is ERC1155, ERC1155Supply, AccessControl {
                 revert InvalidBadgeId(badgeId);
             }
 
-            // Check cooldown after revocation (§6.2.3)
+            // Handle soft-revoked badges (SECURITY_REVIEWED)
+            // Token exists but is inactive - just reactivate, don't mint new
+            if (hasBadge[to][badgeId] && isRevoked[to][badgeId] && badgeId == SECURITY_REVIEWED) {
+                // Reactivate soft-revoked badge (no new token mint needed)
+                isRevoked[to][badgeId] = false;
+                revokedAt[to][badgeId] = 0;
+                uint256 expiresAt = _getExpirationTime(badgeId);
+                badgeExpiresAt[to][badgeId] = expiresAt;
+                amounts[i] = 0; // Don't mint new token
+                emit BadgeMinted(to, badgeId, easUIDs[i], expiresAt, block.timestamp);
+                continue; // Skip to next badge
+            }
+
+            // Check cooldown after hard revocation (§6.2.3)
             uint256 revoked = revokedAt[to][badgeId];
             if (revoked != 0) {
                 uint256 cooldown = getCooldownForBadge(badgeId);
@@ -387,6 +409,7 @@ contract AgentBadges is ERC1155, ERC1155Supply, AccessControl {
                     revert CooldownActive(to, badgeId, (revoked + cooldown) - block.timestamp);
                 }
                 revokedAt[to][badgeId] = 0;
+                isRevoked[to][badgeId] = false;
             }
 
             // Check if already owned and not expired
@@ -537,12 +560,14 @@ contract AgentBadges is ERC1155, ERC1155Supply, AccessControl {
         return block.timestamp > expiresAt;
     }
 
-    /// @notice Check if holder has a valid (non-expired) badge
+    /// @notice Check if holder has a valid (active, non-revoked, non-expired) badge
     /// @param holder Badge holder address
     /// @param badgeId Badge type ID
-    /// @return True if holder has badge AND it's not expired
+    /// @return True if holder has badge AND it's not revoked AND it's not expired
     function hasValidBadge(address holder, uint256 badgeId) external view returns (bool) {
-        return hasBadge[holder][badgeId] && !isExpired(holder, badgeId);
+        return hasBadge[holder][badgeId]
+            && !isRevoked[holder][badgeId]
+            && !isExpired(holder, badgeId);
     }
 
     /// @notice Get all badges owned by address (includes expired)
@@ -634,15 +659,17 @@ interface IBuilderRegistry {
     function getPartnerStats(address partner) external view returns (PartnerStats memory);
 }
 
+/// @notice Minimal interface for AgentRegistry (AIP-7)
+/// @dev Uses AgentBadgeInfo subset to avoid ABI mismatch with full AgentProfile
 interface IAgentRegistry {
-    struct AgentProfile {
-        uint256 registeredAt;
-        uint256 reputationScore;
-        uint256 totalTransactions;
-        bool isActive;
+    struct AgentBadgeInfo {
+        uint256 registeredAt;       // For AGENT_LIVE_60 age check
+        uint256 reputationScore;    // For future reputation-gated badges
+        uint256 totalTransactions;  // For activity verification
+        bool isActive;              // Must be active to claim badges
     }
 
-    function getAgent(address agent) external view returns (AgentProfile memory);
+    function getAgentForBadges(address agent) external view returns (AgentBadgeInfo memory);
 }
 
 interface IAgentPassport {

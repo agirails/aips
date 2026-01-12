@@ -575,6 +575,55 @@ interface IBuilderRegistry {
 }
 ```
 
+#### 4.2.1.1 Success Rate Storage
+
+The success rate referenced in `BuilderStats.successRate` is computed from explicit storage counters:
+
+**Storage Variables**:
+```solidity
+// Per-builder outcome counters
+mapping(address => uint256) public settledCount;           // Successful transactions
+mapping(address => uint256) public disputedCount;          // Disputed (any resolution)
+mapping(address => uint256) public cancelledByRequesterCount; // Requester cancelled after provider accepted
+mapping(address => uint256) public expiredCount;           // Deadline expired
+```
+
+**Recording Logic** (`recordOutcome` implementation):
+```solidity
+/// @notice Record transaction outcome for success rate calculation
+/// @param builder Builder address whose stats to update
+/// @param outcome 0=SETTLED, 1=DISPUTED, 2=CANCELLED_REQUESTER, 3=EXPIRED
+/// @dev Called by ACTPKernel when transaction reaches terminal state
+function recordOutcome(address builder, uint8 outcome) external onlyKernel {
+    if (outcome == 0) settledCount[builder]++;
+    else if (outcome == 1) disputedCount[builder]++;
+    else if (outcome == 2) cancelledByRequesterCount[builder]++;
+    else if (outcome == 3) expiredCount[builder]++;
+    emit OutcomeRecorded(builder, outcome, block.timestamp);
+}
+```
+
+**Calculation Logic** (used by `getBuilderStats`):
+```solidity
+function _calculateSuccessRate(address builder) internal view returns (uint256) {
+    uint256 settled = settledCount[builder];
+    uint256 failed = disputedCount[builder] + cancelledByRequesterCount[builder] + expiredCount[builder];
+    uint256 total = settled + failed;
+
+    if (total == 0) return 10000; // New builder = 100%
+    return (settled * 10000) / total;
+}
+```
+
+**Outcome Classification**:
+| Outcome | Counted As | Rationale |
+|---------|-----------|-----------|
+| SETTLED | Success | Transaction completed successfully |
+| DISPUTED (any) | Failure | Service quality issue |
+| CANCELLED_REQUESTER | Failure | Provider accepted but requester cancelled |
+| DEADLINE_EXPIRED | Failure | Provider didn't deliver |
+| CANCELLED_PROVIDER | NOT counted | Provider's choice, not a failure |
+
 #### 4.2.2 IPartnerRegistry
 
 ```solidity
@@ -2266,3 +2315,4 @@ Based on referred builder quality:
 | 2026-01-11 | 0.13.0 | **NFT Layer Forward References**: Added "Extended By" header field pointing to AIP-9 (Agent Passport NFT), AIP-10 (Reputation Badges), and AIP-11 (Token Bound Accounts). Added note to Section 7 (Agent Ownership NFT) clarifying that AIP-9 contains the full implementation specification while this section provides conceptual design. |
 | 2026-01-11 | 0.14.0 | **TokenId Formula Alignment (CRITICAL)**: Updated Section 7.2 `AgentOwnershipNFT` to use deterministic tokenId derivation `uint256(uint160(agent))` matching AIP-9 specification. Replaced incremental `++_nextTokenId` with `tokenIdFor(agent)` helper function. Added `tokenMinted` mapping to prevent double-mint. This ensures AIP-8 and AIP-9 are fully aligned on tokenId derivation. |
 | 2026-01-11 | 0.15.0 | **AIP-10 Stats Interface (CRITICAL)**: Added `BuilderStats` and `PartnerStats` structs to IBuilderRegistry for badge eligibility verification. Added `getBuilderStats()`, `getPartnerStats()`, `getBuilderOf()` view functions. BuilderStats includes: totalGMV, uniqueCounterparties, successRate (basis points), status (TRIAL/ACTIVE/VERIFIED), partner address. PartnerStats includes: activeBuilderCount, totalBuilderCount, totalGMVReferred, status. |
+| 2026-01-12 | 0.16.0 | **Explicit Storage Section**: Added §4.2.1.1 "Success Rate Storage" with explicit storage declarations for `settledCount`, `disputedCount`, `cancelledByRequesterCount`, `expiredCount` mappings. Moved `recordOutcome()` and `_calculateSuccessRate()` from `/// @dev` comments to proper code blocks. Added Outcome Classification table. Fixes audit finding about successRate counters being "only in comments". |

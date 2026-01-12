@@ -92,11 +92,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /// @notice Minimal interface for AgentRegistry (AIP-7)
 /// @dev Only fields needed by AgentPassport are included.
 ///      Full AgentProfile struct defined in AIP-7 §3.1 has additional fields:
-///      did, endpoint, serviceTypes, stakedAmount, reputationScore,
+///      agentAddress, did, endpoint, serviceTypes, stakedAmount, reputationScore,
 ///      totalTransactions, disputedTransactions, totalVolumeUSDC, updatedAt
+///      NOTE: Owner is NOT in AgentProfile - use BuilderRegistry.getAgent().owner
 interface IAgentRegistry {
     struct AgentProfile {
-        address owner;           // Used for ownership verification
         uint256 registeredAt;    // Used for AGENT_LIVE_60 eligibility
         bool isActive;           // Used for active agent check
     }
