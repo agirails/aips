@@ -3,8 +3,8 @@
 **Status:** Draft
 **Author:** AGIRAILS Core Team
 **Created:** 2026-01-11
-**Updated:** 2026-01-11
-**Version:** 0.1.5
+**Updated:** 2026-01-12
+**Version:** 0.1.6
 **Depends On:** AIP-4 (EAS Delivery Proof), AIP-8 (Builders & Partners), AIP-9 (Agent Passport), AIP-11 (Token Bound Accounts)
 
 ---
@@ -588,17 +588,17 @@ contract AgentBadges is ERC1155, ERC1155Supply, AccessControl {
         return badges;
     }
 
-    /// @notice Get all VALID (non-expired) badges owned by address
+    /// @notice Get all VALID (non-revoked, non-expired) badges owned by address
     function getValidBadges(address holder) external view returns (uint256[] memory) {
         uint256 count = 0;
         for (uint256 i = 1; i <= 6; i++) {
-            if (hasBadge[holder][i] && !isExpired(holder, i)) count++;
+            if (hasBadge[holder][i] && !isRevoked[holder][i] && !isExpired(holder, i)) count++;
         }
 
         uint256[] memory badges = new uint256[](count);
         uint256 index = 0;
         for (uint256 i = 1; i <= 6; i++) {
-            if (hasBadge[holder][i] && !isExpired(holder, i)) {
+            if (hasBadge[holder][i] && !isRevoked[holder][i] && !isExpired(holder, i)) {
                 badges[index] = i;
                 index++;
             }
@@ -803,20 +803,20 @@ contract BadgeClaimer is AccessControl {
         _verifyPassportExists(agent);
 
         // Check eligibility: active 60+ days + minimum transactions
-        IAgentRegistry.AgentProfile memory profile = agentRegistry.getAgent(agent);
-        uint256 activeDays = (block.timestamp - profile.registeredAt) / 1 days;
+        IAgentRegistry.AgentBadgeInfo memory info = agentRegistry.getAgentForBadges(agent);
+        uint256 activeDays = (block.timestamp - info.registeredAt) / 1 days;
 
         if (activeDays < MIN_ACTIVE_DAYS) {
             revert NotEligible(1, "Less than 60 days active");
         }
 
-        if (!profile.isActive) {
+        if (!info.isActive) {
             revert NotEligible(1, "Agent not active");
         }
 
         // Anti-gaming: require minimum transactions to prove actual usage
         // Prevents: register agent → wait 60 days → claim badge → never transact
-        if (profile.totalTransactions < MIN_TRANSACTIONS_FOR_LIVE) {
+        if (info.totalTransactions < MIN_TRANSACTIONS_FOR_LIVE) {
             revert NotEligible(1, "Less than 3 transactions");
         }
 
@@ -919,14 +919,14 @@ contract BadgeClaimer is AccessControl {
         _verifyPassportExists(agent);
 
         // Check reputation score (94%+ satisfaction = 9400+ score)
-        IAgentRegistry.AgentProfile memory profile = agentRegistry.getAgent(agent);
+        IAgentRegistry.AgentBadgeInfo memory info = agentRegistry.getAgentForBadges(agent);
 
-        if (profile.reputationScore < MIN_SATISFACTION_RATE) {
+        if (info.reputationScore < MIN_SATISFACTION_RATE) {
             revert NotEligible(6, "Satisfaction below 94%");
         }
 
         // Minimum transactions for statistical significance
-        if (profile.totalTransactions < 10) {
+        if (info.totalTransactions < 10) {
             revert NotEligible(6, "Less than 10 transactions");
         }
 

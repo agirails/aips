@@ -3,8 +3,8 @@
 **Status:** Draft
 **Author:** AGIRAILS Core Team
 **Created:** 2025-11-29
-**Updated:** 2026-01-11
-**Version:** 0.8.0
+**Updated:** 2026-01-12
+**Version:** 0.9.0
 **Depends On:** AIP-0 (Meta Protocol), AIP-4 (Delivery Proof)
 **Extended By:** AIP-9 (Agent Passport NFT)
 **Reviewed By:** Apex (Protocol Engineer) - 2025-11-29
@@ -397,6 +397,12 @@ interface IAgentRegistry {
         uint256 timestamp
     );
 
+    /// @notice Emitted when agent deregisters
+    event AgentDeregistered(
+        address indexed agentAddress,
+        uint256 timestamp
+    );
+
     /// @notice Emitted when agent updates endpoint
     event EndpointUpdated(
         address indexed agentAddress,
@@ -433,6 +439,12 @@ interface IAgentRegistry {
         string calldata endpoint,
         ServiceDescriptor[] calldata serviceDescriptors
     ) external;
+
+    /// @notice Deregister agent and trigger cleanup hooks
+    /// @dev Burns passport NFT if AIP-9 integration is active
+    /// @dev Only callable by agent owner (via AIP-8 ownership) or agent itself
+    /// @param agentAddress Agent to deregister
+    function deregisterAgent(address agentAddress) external;
 
     /// @notice Update agent endpoint (webhook URL or IPFS gateway)
     /// @dev Only callable by the agent itself (msg.sender == agentAddress)

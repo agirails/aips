@@ -982,7 +982,7 @@ function registerAgent(
 
 | Function | Description | Effect |
 |----------|-------------|--------|
-| `transferOwnership(agent, newOwner)` | Transfer agent to new owner | New owner controls agent |
+| `transferOwnership(agent, newOwner)` | Transfer agent to new owner (V1: direct call; V1.1: via NFT transfer) | New owner controls agent |
 | `initiateBuilderReplacement(agent, newBuilder)` | Start 30-day notice period | Old builder notified, continues earning |
 | `executeBuilderReplacement(agent)` | Complete replacement after notice | Old builder stops earning, new starts |
 | `cancelBuilderReplacement(agent)` | Cancel pending replacement | Old builder continues |
@@ -2316,3 +2316,4 @@ Based on referred builder quality:
 | 2026-01-11 | 0.14.0 | **TokenId Formula Alignment (CRITICAL)**: Updated Section 7.2 `AgentOwnershipNFT` to use deterministic tokenId derivation `uint256(uint160(agent))` matching AIP-9 specification. Replaced incremental `++_nextTokenId` with `tokenIdFor(agent)` helper function. Added `tokenMinted` mapping to prevent double-mint. This ensures AIP-8 and AIP-9 are fully aligned on tokenId derivation. |
 | 2026-01-11 | 0.15.0 | **AIP-10 Stats Interface (CRITICAL)**: Added `BuilderStats` and `PartnerStats` structs to IBuilderRegistry for badge eligibility verification. Added `getBuilderStats()`, `getPartnerStats()`, `getBuilderOf()` view functions. BuilderStats includes: totalGMV, uniqueCounterparties, successRate (basis points), status (TRIAL/ACTIVE/VERIFIED), partner address. PartnerStats includes: activeBuilderCount, totalBuilderCount, totalGMVReferred, status. |
 | 2026-01-12 | 0.16.0 | **Explicit Storage Section**: Added §4.2.1.1 "Success Rate Storage" with explicit storage declarations for `settledCount`, `disputedCount`, `cancelledByRequesterCount`, `expiredCount` mappings. Moved `recordOutcome()` and `_calculateSuccessRate()` from `/// @dev` comments to proper code blocks. Added Outcome Classification table. Fixes audit finding about successRate counters being "only in comments". |
+| 2026-01-12 | 0.17.0 | **Owner Functions Table Fix**: Updated §6.1 `transferOwnership` description to clarify "V1: direct call; V1.1: via NFT transfer" - aligns with Access Control Matrix which correctly showed NFT exception. Fixes documentation drift audit finding. |
