@@ -468,8 +468,33 @@ interface IBuilderRegistry {
     /// - CANCELLED_PROVIDER: NOT counted (provider's choice, not a failure)
     ///
     /// Edge case: 0 total transactions = 10000 (100%) to allow new builders to claim badges
+
+    /// @dev §4.2.1.2 Success Rate Storage
     ///
-    /// Implementation:
+    /// Storage mappings (per builder address):
+    /// ```solidity
+    /// mapping(address => uint256) public settledCount;
+    /// mapping(address => uint256) public disputedCount;
+    /// mapping(address => uint256) public cancelledByRequesterCount;
+    /// mapping(address => uint256) public expiredCount;
+    /// ```
+    ///
+    /// Updated by ACTPKernel on terminal state transitions:
+    /// ```solidity
+    /// /// @notice Record transaction outcome for success rate calculation
+    /// /// @param builder Builder address whose stats to update
+    /// /// @param outcome 0=SETTLED, 1=DISPUTED, 2=CANCELLED_REQUESTER, 3=EXPIRED
+    /// /// @dev Called by ACTPKernel when transaction reaches terminal state
+    /// function recordOutcome(address builder, uint8 outcome) external onlyKernel {
+    ///     if (outcome == 0) settledCount[builder]++;
+    ///     else if (outcome == 1) disputedCount[builder]++;
+    ///     else if (outcome == 2) cancelledByRequesterCount[builder]++;
+    ///     else if (outcome == 3) expiredCount[builder]++;
+    ///     emit OutcomeRecorded(builder, outcome, block.timestamp);
+    /// }
+    /// ```
+    ///
+    /// Success rate computed on-demand:
     /// ```solidity
     /// function _calculateSuccessRate(address builder) internal view returns (uint256) {
     ///     uint256 settled = settledCount[builder];
@@ -530,6 +555,11 @@ interface IBuilderRegistry {
         uint256 feeAmount
     ) external;
 
+    /// @notice Record transaction outcome for success rate (§4.2.1.2)
+    /// @param builder Builder address
+    /// @param outcome 0=SETTLED, 1=DISPUTED, 2=CANCELLED_REQUESTER, 3=EXPIRED
+    function recordOutcome(address builder, uint8 outcome) external;
+
     // Stats view functions (for AIP-10 badge eligibility)
     function getBuilderStats(address builder) external view returns (BuilderStats memory);
     function getPartnerStats(address partner) external view returns (PartnerStats memory);
@@ -541,6 +571,7 @@ interface IBuilderRegistry {
     event BuilderReplaced(address indexed agent, address indexed oldBuilder, address indexed newBuilder);
     event OwnershipTransferred(address indexed agent, address indexed oldOwner, address indexed newOwner);
     event GMVRecorded(address indexed builder, bytes32 indexed txId, uint256 amount);
+    event OutcomeRecorded(address indexed builder, uint8 indexed outcome, uint256 timestamp);
 }
 ```
 
@@ -1437,7 +1468,7 @@ function transferOwnership(address agent, address newOwner) external {
 | `initiateBuilderReplacement(agent, newBuilder)` | Owner only | `msg.sender == reg.owner` |
 | `executeBuilderReplacement(agent)` | Owner only | `msg.sender == reg.owner`, 30 days passed |
 | `cancelBuilderReplacement(agent)` | Owner only | `msg.sender == reg.owner` |
-| `transferOwnership(agent, newOwner)` | Owner only | `msg.sender == reg.owner` |
+| `transferOwnership(agent, newOwner)` | Owner (V1) OR NFT (V1.1) | V1: `msg.sender == reg.owner`; V1.1: `msg.sender == nftContract` |
 | `deactivateAgent(agent)` | Owner OR Admin | `owner OR hasRole(ADMIN)` |
 | `reactivateAgent(agent)` | Owner only | `msg.sender == reg.owner` |
 | `rotateBuilderWallet(newWallet)` | Builder only | `isBuilder[msg.sender]` |

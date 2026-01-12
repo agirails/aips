@@ -56,11 +56,14 @@ Badges provide:
 ### 1.3 Design Philosophy
 
 ```
-EAS Attestation = SOURCE OF TRUTH (on-chain, queryable)
+On-chain Stats = PRIMARY TRUTH (for protocol-derived badges: 1,2,3,4,6)
+EAS Attestation = SECONDARY TRUTH (for external verification: badge 5)
 Badge NFT = VISUAL TROPHY (for display, no protocol impact)
 ```
 
-Badges are **derived** from attestations, not the other way around.
+Badges are **derived** from on-chain stats or attestations, not the other way around.
+On-chain stats are preferred because they are tied to fee-paid transactions (cost-to-fake)
+and have no external dependencies in the critical path.
 
 ---
 
@@ -243,6 +246,9 @@ contract AgentBadges is ERC1155, ERC1155Supply, AccessControl {
     /// @notice Tracks revocation timestamps for cooldown enforcement (0 = never revoked)
     mapping(address => mapping(uint256 => uint256)) public revokedAt;
 
+    /// @notice Tracks if badge is revoked/inactive (for soft revoke - token remains but inactive)
+    mapping(address => mapping(uint256 => bool)) public isRevoked;
+
     // ========== EVENTS ==========
 
     event BadgeMinted(
@@ -291,7 +297,22 @@ contract AgentBadges is ERC1155, ERC1155Supply, AccessControl {
             revert InvalidBadgeId(badgeId);
         }
 
-        // Check cooldown after revocation (§6.2.3)
+        // Handle soft-revoked badges (SECURITY_REVIEWED)
+        // Token exists but is inactive - just reactivate, don't mint new
+        if (hasBadge[to][badgeId] && isRevoked[to][badgeId] && badgeId == SECURITY_REVIEWED) {
+            // Reactivate soft-revoked badge (no new token mint needed)
+            isRevoked[to][badgeId] = false;
+            revokedAt[to][badgeId] = 0;
+
+            // Update expiration
+            uint256 expiresAt = _getExpirationTime(badgeId);
+            badgeExpiresAt[to][badgeId] = expiresAt;
+
+            emit BadgeMinted(to, badgeId, easUID, expiresAt, block.timestamp);
+            return; // Early return - no actual mint needed
+        }
+
+        // Check cooldown after hard revocation (§6.2.3)
         uint256 revoked = revokedAt[to][badgeId];
         if (revoked != 0) {
             uint256 cooldown = getCooldownForBadge(badgeId);
@@ -300,6 +321,7 @@ contract AgentBadges is ERC1155, ERC1155Supply, AccessControl {
             }
             // Clear revocation record after cooldown passed
             revokedAt[to][badgeId] = 0;
+            isRevoked[to][badgeId] = false;
         }
 
         // Check if badge is expired (allows re-claim) or never owned
@@ -404,17 +426,20 @@ contract AgentBadges is ERC1155, ERC1155Supply, AccessControl {
             revert BadgeNotOwned(from, badgeId);
         }
 
-        // Mark as not owned and record revocation timestamp
-        hasBadge[from][badgeId] = false;
+        // Record revocation timestamp and mark as revoked
         revokedAt[from][badgeId] = block.timestamp;
+        isRevoked[from][badgeId] = true;
 
-        // EAS-backed badge (SECURITY_REVIEWED): soft revoke - token remains, marked inactive
-        // Re-claim requires new valid EAS attestation
+        // EAS-backed badge (SECURITY_REVIEWED): soft revoke
+        // - Token remains (visible as "revoked trophy" on OpenSea)
+        // - hasBadge stays true (prevents duplicate mint)
+        // - isRevoked = true (badge is inactive)
+        // - Re-claim requires new valid EAS attestation (no cooldown)
         if (badgeId == SECURITY_REVIEWED) {
-            // No burn - token remains but is inactive
-            // Holder can re-claim with new attestation (no cooldown for EAS)
+            // Soft revoke: no burn, no hasBadge change
         } else {
-            // Hard revoke: burn token, cooldown applies before re-claim
+            // Hard revoke: burn token, clear hasBadge, cooldown applies
+            hasBadge[from][badgeId] = false;
             _burn(from, badgeId, 1);
         }
 
@@ -444,6 +469,16 @@ contract AgentBadges is ERC1155, ERC1155Supply, AccessControl {
 
         uint256 cooldown = getCooldownForBadge(badgeId);
         return block.timestamp < revoked + cooldown;
+    }
+
+    /// @notice Check if a badge is currently active (owned, not revoked, not expired)
+    /// @param holder Address to check
+    /// @param badgeId Badge type ID
+    /// @return active True if badge is active
+    function isActive(address holder, uint256 badgeId) public view returns (bool) {
+        return hasBadge[holder][badgeId]
+            && !isRevoked[holder][badgeId]
+            && !isExpired(holder, badgeId);
     }
 
     // ========== SOULBOUND (Transfer Disabled) ==========
@@ -1035,7 +1070,7 @@ contract BadgeClaimer is AccessControl {
 | INV-10.2 | Badges are soulbound | Transfer functions revert |
 | INV-10.3 | One VALID badge per type per recipient | hasValidBadge() check |
 | INV-10.4 | Badges DO NOT affect fees | Fee logic in AIP-8, not here |
-| INV-10.5 | EAS is source of truth | Eligibility checked from on-chain data |
+| INV-10.5 | Hybrid truth model | On-chain stats (primary) + EAS (secondary, badge 5 only) |
 | INV-10.6 | AGENT_LIVE_60 requires transactions | MIN_TRANSACTIONS_FOR_LIVE (3) |
 | INV-10.7 | AGENT_LIVE_60, BUILDER_VERIFIED permanent | expiresAt = 0 |
 | INV-10.8 | Performance badges expire (90d/365d) | expiresAt = timestamp + validity |

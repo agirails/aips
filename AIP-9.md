@@ -89,11 +89,16 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+/// @notice Minimal interface for AgentRegistry (AIP-7)
+/// @dev Only fields needed by AgentPassport are included.
+///      Full AgentProfile struct defined in AIP-7 §3.1 has additional fields:
+///      did, endpoint, serviceTypes, stakedAmount, reputationScore,
+///      totalTransactions, disputedTransactions, totalVolumeUSDC, updatedAt
 interface IAgentRegistry {
     struct AgentProfile {
-        address owner;
-        uint256 registeredAt;
-        bool isActive;
+        address owner;           // Used for ownership verification
+        uint256 registeredAt;    // Used for AGENT_LIVE_60 eligibility
+        bool isActive;           // Used for active agent check
     }
     function getAgent(address agent) external view returns (AgentProfile memory);
 }
@@ -654,10 +659,14 @@ function initiateBuilderReplacement(address agent, address newBuilder) external 
 
 | ID | Invariant | Threat Mitigated |
 |----|-----------|------------------|
-| SEC-9.1 | Only AgentRegistry OR BuilderRegistry can mint/burn | Unauthorized minting |
+| SEC-9.1a | Only AgentRegistry OR BuilderRegistry can mint | Unauthorized minting |
+| SEC-9.1b | Only AgentRegistry can burn | Unauthorized burning (destructive action) |
 | SEC-9.2 | Cannot mint for unregistered agent | Ghost passports |
 | SEC-9.3 | Cannot burn non-existent passport | State corruption |
 | SEC-9.4 | Royalties cannot exceed 10% | Marketplace lockout |
+
+> **Note**: BuilderRegistry can mint passports (for agent registration flow) but cannot burn.
+> Burning is a destructive action restricted to AgentRegistry as the identity authority.
 
 ---
 
@@ -668,6 +677,7 @@ function initiateBuilderReplacement(address agent, address newBuilder) external 
 | Attack | Mitigation |
 |--------|------------|
 | Unauthorized mint | `msg.sender == agentRegistry \|\| msg.sender == builderRegistry` check |
+| Unauthorized burn | `msg.sender == agentRegistry` only (BuilderRegistry cannot burn) |
 | Double mint | `tokenMinted[]` mapping |
 | Rug pull via transfer | Owner can only change owner, not builder fees |
 | Metadata spoofing | On-chain agentOf[] is source of truth |
