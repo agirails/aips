@@ -3,9 +3,10 @@
 **Status:** Draft
 **Author:** AGIRAILS Core Team
 **Created:** 2025-01-09
-**Updated:** 2026-01-10
-**Version:** 0.12.0
+**Updated:** 2026-01-11
+**Version:** 0.13.0
 **Depends On:** AIP-0 (Meta Protocol), AIP-6 (Fee Structure), AIP-7 (Agent Identity Registry)
+**Extended By:** AIP-9 (Agent Passport NFT), AIP-10 (Reputation Badges), AIP-11 (Token Bound Accounts)
 
 ---
 
@@ -444,6 +445,50 @@ interface IBuilderRegistry {
         bool active;
     }
 
+    /// @notice Computed stats for badge eligibility (AIP-10)
+    /// @dev successRate calculation defined in §4.2.1.1
+    struct BuilderStats {
+        uint256 totalGMV;           // Lifetime GMV in USDC (6 decimals)
+        uint256 uniqueCounterparties; // Count of unique addresses transacted with
+        uint256 successRate;        // Success rate in basis points (9500 = 95%)
+        uint256 registeredAt;       // Unix timestamp of registration
+        uint8 status;               // 0=TRIAL, 1=ACTIVE, 2=VERIFIED
+        address partner;            // Linked partner (from AgentRegistration.referredBy)
+    }
+
+    /// @dev §4.2.1.1 Success Rate Calculation
+    ///
+    /// Formula: successRate = (settled / total) * 10000
+    ///
+    /// Transaction outcomes:
+    /// - SETTLED: Counted as successful
+    /// - DISPUTED (any resolution): Counted as failed
+    /// - CANCELLED_REQUESTER: Counted as failed (provider accepted but requester cancelled)
+    /// - DEADLINE_EXPIRED: Counted as failed (provider didn't deliver)
+    /// - CANCELLED_PROVIDER: NOT counted (provider's choice, not a failure)
+    ///
+    /// Edge case: 0 total transactions = 10000 (100%) to allow new builders to claim badges
+    ///
+    /// Implementation:
+    /// ```solidity
+    /// function _calculateSuccessRate(address builder) internal view returns (uint256) {
+    ///     uint256 settled = settledCount[builder];
+    ///     uint256 failed = disputedCount[builder] + cancelledByRequesterCount[builder] + expiredCount[builder];
+    ///     uint256 total = settled + failed;
+    ///
+    ///     if (total == 0) return 10000; // New builder = 100%
+    ///     return (settled * 10000) / total;
+    /// }
+    /// ```
+
+    /// @notice Computed stats for partner badge eligibility (AIP-10)
+    struct PartnerStats {
+        uint256 activeBuilderCount;   // Number of active builders referred
+        uint256 totalBuilderCount;    // Total builders referred (including inactive)
+        uint256 totalGMVReferred;     // Sum of GMV from all referred builders
+        uint8 status;                 // 0=PENDING, 1=ACTIVE, 2=SUSPENDED
+    }
+
     // Builder functions
     function registerBuilder(bytes32 partnerCode) external;
     function getBuilder(address wallet) external view returns (Builder memory);
@@ -484,6 +529,11 @@ interface IBuilderRegistry {
         uint256 amount,
         uint256 feeAmount
     ) external;
+
+    // Stats view functions (for AIP-10 badge eligibility)
+    function getBuilderStats(address builder) external view returns (BuilderStats memory);
+    function getPartnerStats(address partner) external view returns (PartnerStats memory);
+    function getBuilderOf(address agent) external view returns (address);
 
     // Events
     event BuilderRegistered(address indexed builder);
@@ -1238,13 +1288,24 @@ function executeBuilderReplacement(address agent) external {
 
 ## 7. Agent Ownership NFT (V1.1)
 
+> **NOTE:** This section provides the conceptual design. For complete implementation specification including ERC-721Enumerable, ERC-2981 royalties, OpenSea metadata, and integration details, see **AIP-9: Agent Passport NFT**.
+>
+> Related AIPs:
+> - **AIP-9**: Agent Passport NFT (full ERC-721 implementation)
+> - **AIP-10**: Reputation Badges (minted to agent's TBA)
+> - **AIP-11**: Token Bound Accounts (badge portability)
+
 ### 7.1 Motivation
 
 In V1.1, agent ownership is represented as an ERC-721 NFT, enabling:
 - Trading on OpenSea, Blur, and other marketplaces
-- Collateralization for DeFi (loans against revenue-generating agents)
 - Visual representation of agent portfolio
 - Transferability with marketplace protections
+- Badge portability via Token Bound Accounts (AIP-11)
+
+> **Important**: Agent NFTs represent **ownership and lifecycle management**.
+> They are NOT designed as financial instruments or DeFi collateral.
+> See AGIRAILS_NFT_WHITEPAPER.md §2.2 for design guardrails.
 
 ### 7.2 NFT Contract Design
 
@@ -1259,18 +1320,26 @@ contract AgentOwnershipNFT is ERC721 {
 
     mapping(uint256 => address) public agentOf;     // tokenId → agent address
     mapping(address => uint256) public tokenOfAgent; // agent → tokenId
-    uint256 private _nextTokenId;
+    mapping(uint256 => bool) public tokenMinted;    // prevent double-mint
 
     constructor(address _builderRegistry) ERC721("AGIRAILS Agent", "AGENT") {
         builderRegistry = IBuilderRegistry(_builderRegistry);
     }
 
+    /// @notice Deterministic tokenId derivation (matches AIP-9)
+    /// @dev tokenId = uint256(uint160(agentAddress)) - collision-free, predictable
+    function tokenIdFor(address agent) public pure returns (uint256) {
+        return uint256(uint160(agent));
+    }
+
     /// @notice Mint NFT when agent is registered
     function mint(address agent, address owner) external {
         require(msg.sender == address(builderRegistry), "Only registry");
-        require(tokenOfAgent[agent] == 0, "Already minted");
 
-        uint256 tokenId = ++_nextTokenId;
+        uint256 tokenId = tokenIdFor(agent);
+        require(!tokenMinted[tokenId], "Already minted");
+
+        tokenMinted[tokenId] = true;
         _mint(owner, tokenId);
         agentOf[tokenId] = agent;
         tokenOfAgent[agent] = tokenId;
@@ -1303,18 +1372,32 @@ contract AgentOwnershipNFT is ERC721 {
 - Which is correct?
 
 **Solution**: When V1.1 NFT is deployed:
-1. `transferOwnership()` in registry is DISABLED
-2. All ownership transfers go through NFT
-3. NFT `_update()` hook syncs to registry
+1. `transferOwnership()` in registry is DISABLED for external callers (except NFT contract)
+2. All user-initiated ownership transfers go through NFT
+3. NFT `_update()` hook syncs to registry via `transferOwnership()`
 
 ```solidity
 function transferOwnership(address agent, address newOwner) external {
     if (nftContract != address(0)) {
-        revert("Use NFT transfer");
+        // NFT contract can sync ownership changes
+        if (msg.sender != nftContract) {
+            revert("Use NFT transfer");
+        }
+    } else {
+        // V1 legacy: only current owner can transfer
+        require(msg.sender == agents[agent].owner, "Not owner");
     }
-    // ... legacy transfer logic (V1 only)
+
+    // Update ownership (both V1 legacy and V1.1 NFT sync use this)
+    address previousOwner = agents[agent].owner;
+    agents[agent].owner = newOwner;
+
+    emit OwnershipTransferred(agent, previousOwner, newOwner);
 }
 ```
+
+> **Note**: This design allows NFT `_update()` to call `transferOwnership()` for sync,
+> while preventing direct calls from users when NFT is deployed.
 
 **Migration Path**:
 - V1: Registry-based ownership (no NFT)
@@ -2149,3 +2232,6 @@ Based on referred builder quality:
 | 2026-01-10 | 0.11.0 | **Truncation Safety** based on eighth Codex review: **Medium Fixes**: (1) `updateAgentBuilder()` now unpacks all 5 return values from `getRotationInfo()` (was unpacking 4, causing mismatch); (2) Added `require(!chainTruncated)` check - when chain >10 hops, recovery is IMPOSSIBLE and function reverts with clear error. **Low**: Updated SDK example with 3-tier handling: chainTruncated (unrecoverable - suggest new agent), revenueAtRisk (recoverable - call update NOW), approaching limit (warning). Added RECOVERY TIERS table in documentation: 1-3 hops SAFE, 4-10 hops RECOVERABLE, >10 hops UNRECOVERABLE. |
 | 2026-01-10 | 0.11.1 | **Matrix Completeness** based on ninth Codex review: **Low**: Added `!chainTruncated` to Access Control Matrix for `updateAgentBuilder()` - now shows all 4 runtime guards in order: `!chainTruncated` + `chainEndWallet == msg.sender` + `oldBuilder != msg.sender` + `isBuilder[msg.sender]`. |
 | 2026-01-10 | 0.12.0 | **Soft Block Warnings** based on external auditor feedback: Added proactive warning events in `rotateBuilderWallet()`: (1) `RotationChainAtRisk(oldWallet, newWallet, chainDepth)` - emitted when rotation causes chain to exceed 3 hops (revenue at risk); (2) `RotationChainUnrecoverable(oldWallet, newWallet, chainDepth)` - emitted when rotation causes chain to exceed 10 hops (recovery impossible). SDK can listen to these events to warn builders BEFORE it's too late. Rotation is NOT blocked - this is a soft warning only. |
+| 2026-01-11 | 0.13.0 | **NFT Layer Forward References**: Added "Extended By" header field pointing to AIP-9 (Agent Passport NFT), AIP-10 (Reputation Badges), and AIP-11 (Token Bound Accounts). Added note to Section 7 (Agent Ownership NFT) clarifying that AIP-9 contains the full implementation specification while this section provides conceptual design. |
+| 2026-01-11 | 0.14.0 | **TokenId Formula Alignment (CRITICAL)**: Updated Section 7.2 `AgentOwnershipNFT` to use deterministic tokenId derivation `uint256(uint160(agent))` matching AIP-9 specification. Replaced incremental `++_nextTokenId` with `tokenIdFor(agent)` helper function. Added `tokenMinted` mapping to prevent double-mint. This ensures AIP-8 and AIP-9 are fully aligned on tokenId derivation. |
+| 2026-01-11 | 0.15.0 | **AIP-10 Stats Interface (CRITICAL)**: Added `BuilderStats` and `PartnerStats` structs to IBuilderRegistry for badge eligibility verification. Added `getBuilderStats()`, `getPartnerStats()`, `getBuilderOf()` view functions. BuilderStats includes: totalGMV, uniqueCounterparties, successRate (basis points), status (TRIAL/ACTIVE/VERIFIED), partner address. PartnerStats includes: activeBuilderCount, totalBuilderCount, totalGMVReferred, status. |

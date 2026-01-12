@@ -3,9 +3,10 @@
 **Status:** Draft
 **Author:** AGIRAILS Core Team
 **Created:** 2025-11-29
-**Updated:** 2025-11-30
-**Version:** 0.7.0
+**Updated:** 2026-01-11
+**Version:** 0.8.0
 **Depends On:** AIP-0 (Meta Protocol), AIP-4 (Delivery Proof)
+**Extended By:** AIP-9 (Agent Passport NFT)
 **Reviewed By:** Apex (Protocol Engineer) - 2025-11-29
 
 ---
@@ -357,6 +358,8 @@ interface IAgentRegistry {
         uint256 registeredAt;           // Block timestamp of registration
         uint256 updatedAt;              // Last profile update timestamp
         bool isActive;                  // Agent is accepting new requests
+        // Note: passportTokenId removed - AIP-9 uses deterministic derivation:
+        // tokenId = uint256(uint160(agentAddress))
     }
 
     /// @notice Service descriptor metadata (stored off-chain, hash on-chain)
@@ -3072,6 +3075,16 @@ const hash = ethers.utils.keccak256(
 ---
 
 ## 12. Changelog
+
+- **2026-01-12**: AIP-9 Deterministic TokenId Amendment (v0.8.1)
+  - §3.1: Removed `passportTokenId` field from AgentProfile struct
+  - **Reason**: AIP-9 uses deterministic derivation `tokenId = uint256(uint160(agentAddress))`
+  - **Benefits**: Zero storage, zero sync, single source of truth
+  - **Query**: Use `passportContract.tokenIdFor(agent)` to compute tokenId
+  - Header: "Extended By: AIP-9 (Agent Passport NFT)" reference retained
+
+- **2026-01-11**: AIP-9 Integration Amendment (v0.8.0) - SUPERSEDED by v0.8.1
+  - Originally added `passportTokenId` field - now removed in favor of deterministic derivation
 
 - **2025-11-29**: Final review consistency fixes (v0.6.1)
   - §1.3: Fixed Layer 1 overview to show full DID format `did:ethr:<chainId>:<address>` (was showing deprecated simplified format)
