@@ -1229,6 +1229,11 @@ event RevocationAppealed(
 
 ## 10. Changelog
 
+- **2026-01-12**: ABI alignment + validity fixes (v0.1.6)
+  - Fixed `claimAgentLive60()` and `claimQualityVerified()` to use `getAgentForBadges()` + `AgentBadgeInfo`
+  - Fixed `getValidBadges()` to check `!isRevoked[holder][i]` (consistent with `hasValidBadge()`)
+  - **Reason**: ABI mismatch between minimal IAgentRegistry and full AIP-7 AgentProfile
+
 - **2026-01-11**: Storage + revocation (v0.1.5)
   - Added storage layer reference to AIP-9 §2.4
   - Expanded §6.2 Revocation Policy with triggers, authority, process

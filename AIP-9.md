@@ -3,8 +3,8 @@
 **Status:** Draft
 **Author:** AGIRAILS Core Team
 **Created:** 2026-01-11
-**Updated:** 2026-01-11
-**Version:** 0.2.1
+**Updated:** 2026-01-12
+**Version:** 0.2.2
 **Depends On:** AIP-7 (Agent Identity), AIP-8 (Builders & Partners)
 **Extends:** AIP-8 Section 7 (Agent Ownership NFT)
 
@@ -89,29 +89,25 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-/// @notice Minimal interface for AgentRegistry (AIP-7)
-/// @dev Only fields needed by AgentPassport are included.
-///      Full AgentProfile struct defined in AIP-7 §3.1 has additional fields:
-///      agentAddress, did, endpoint, serviceTypes, stakedAmount, reputationScore,
-///      totalTransactions, disputedTransactions, totalVolumeUSDC, updatedAt
-///      NOTE: Owner is NOT in AgentProfile - use BuilderRegistry.getAgent().owner
-interface IAgentRegistry {
-    struct AgentProfile {
-        uint256 registeredAt;    // Used for AGENT_LIVE_60 eligibility
-        bool isActive;           // Used for active agent check
-    }
-    function getAgent(address agent) external view returns (AgentProfile memory);
-}
-
+/// @notice Minimal interface for BuilderRegistry (AIP-8)
+/// @dev Only functions needed by AgentPassport are included.
+///      AgentRegistration struct must match AIP-8 §4.2.1 field order exactly for ABI compatibility.
 interface IBuilderRegistry {
-    struct Agent {
-        address owner;
-        address builder;
-        address partner;
-        uint256 registeredAt;
+    /// @dev Matches AIP-8 AgentRegistration struct exactly (field order matters for ABI)
+    struct AgentRegistration {
+        address agent;          // Agent address
+        address owner;          // Current owner (passport holder)
+        address builder;        // Builder earning fees
+        address referredBy;     // Partner - PERMANENT
+        uint256 registeredAt;   // Registration timestamp
+        bool active;            // Agent is active
     }
+
+    /// @notice Transfer agent ownership (called by NFT on transfer)
     function transferOwnership(address agent, address newOwner) external;
-    function getAgent(address agent) external view returns (Agent memory);
+
+    /// @notice Get agent registration info
+    function getAgent(address agent) external view returns (AgentRegistration memory);
 }
 
 /// @title AgentPassport
@@ -125,9 +121,6 @@ contract AgentPassport is
     Ownable
 {
     // ========== STATE VARIABLES ==========
-
-    /// @notice AIP-7 Agent Registry contract
-    IAgentRegistry public immutable agentRegistry;
 
     /// @notice AIP-8 Builder Registry contract
     IBuilderRegistry public immutable builderRegistry;
@@ -180,7 +173,6 @@ contract AgentPassport is
     // ========== CONSTRUCTOR ==========
 
     constructor(
-        address _agentRegistry,
         address _builderRegistry,
         string memory _name,
         string memory _symbol,
@@ -191,7 +183,6 @@ contract AgentPassport is
         ERC721(_name, _symbol)
         Ownable(msg.sender)
     {
-        agentRegistry = IAgentRegistry(_agentRegistry);
         builderRegistry = IBuilderRegistry(_builderRegistry);
         baseTokenURI = _baseTokenURI;
 
@@ -747,6 +738,12 @@ Before mainnet deployment:
 ---
 
 ## 10. Changelog
+
+- **2026-01-12**: ABI-safe interface cleanup (v0.2.2)
+  - BREAKING: Removed IAgentRegistry interface entirely (not used at runtime)
+  - BREAKING: Removed agentRegistry constructor parameter and state variable
+  - Fixed IBuilderRegistry.AgentRegistration to match AIP-8 field order exactly
+  - **Reason**: ABI mismatch would cause incorrect decoding of owner/builder fields
 
 - **2026-01-11**: Metadata storage layer (v0.2.1)
   - Added §2.4 Metadata Storage Layer specification

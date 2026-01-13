@@ -536,11 +536,20 @@ interface IAgentRegistry {
 | Function | Caller Requirement | Enforcement |
 |----------|-------------------|-------------|
 | `registerAgent` | msg.sender = new agent | `agentAddress = msg.sender` (implicit) |
+| `deregisterAgent` | msg.sender = agent OR owner (via AIP-8) | `require(msg.sender == agent \|\| isOwner(msg.sender, agent))` |
 | `updateEndpoint` | msg.sender = registered agent | `require(agents[msg.sender].registeredAt > 0)` |
 | `addServiceType` | msg.sender = registered agent | `require(agents[msg.sender].registeredAt > 0)` |
 | `removeServiceType` | msg.sender = registered agent | `require(agents[msg.sender].registeredAt > 0)` |
 | `setActiveStatus` | msg.sender = registered agent | `require(agents[msg.sender].registeredAt > 0)` |
 | `updateReputationOnSettlement` | msg.sender = ACTPKernel | `require(msg.sender == actpKernel)` |
+
+**View Functions (no access control):**
+
+| Function | Description |
+|----------|-------------|
+| `getAgent` | Returns full AgentProfile struct |
+| `getAgentForBadges` | Returns minimal AgentBadgeInfo for AIP-10 badge eligibility |
+| `getAgentByDID` | Lookup agent by DID string |
 
 **Implementation Note:**
 
@@ -3101,6 +3110,13 @@ const hash = ethers.utils.keccak256(
 ---
 
 ## 12. Changelog
+
+- **2026-01-12**: Deregistration + Access Control (v0.9.0)
+  - Added `deregisterAgent(address)` function to interface
+  - Added `AgentDeregistered` event
+  - Added `deregisterAgent` to Access Control Rules table
+  - Added View Functions table with `getAgent`, `getAgentForBadges`, `getAgentByDID`
+  - **Reason**: AIP-9 burnPassport hook requires deregisterAgent in AIP-7
 
 - **2026-01-12**: AIP-9 Deterministic TokenId Amendment (v0.8.1)
   - §3.1: Removed `passportTokenId` field from AgentProfile struct

@@ -3,8 +3,8 @@
 **Status:** Draft
 **Author:** AGIRAILS Core Team
 **Created:** 2025-01-09
-**Updated:** 2026-01-11
-**Version:** 0.13.0
+**Updated:** 2026-01-12
+**Version:** 0.17.0
 **Depends On:** AIP-0 (Meta Protocol), AIP-6 (Fee Structure), AIP-7 (Agent Identity Registry)
 **Extended By:** AIP-9 (Agent Passport NFT), AIP-10 (Reputation Badges), AIP-11 (Token Bound Accounts)
 
@@ -148,6 +148,7 @@ Partner → refers → Builder → registers → Agent → owned by → Owner
 │                                             Partner UNCHANGED    │
 │                                                                  │
 │  Owner calls transferOwnership() → New owner                     │
+│    (V1: direct call; V1.1: via NFT transfer)                     │
 │                                    Builder UNCHANGED*            │
 │                                    Partner UNCHANGED             │
 │                                    (*new owner may replace)      │
@@ -469,7 +470,7 @@ interface IBuilderRegistry {
     ///
     /// Edge case: 0 total transactions = 10000 (100%) to allow new builders to claim badges
 
-    /// @dev §4.2.1.2 Success Rate Storage
+    /// @dev §4.2.1.1 Success Rate Storage
     ///
     /// Storage mappings (per builder address):
     /// ```solidity
@@ -555,7 +556,7 @@ interface IBuilderRegistry {
         uint256 feeAmount
     ) external;
 
-    /// @notice Record transaction outcome for success rate (§4.2.1.2)
+    /// @notice Record transaction outcome for success rate (§4.2.1.1)
     /// @param builder Builder address
     /// @param outcome 0=SETTLED, 1=DISPUTED, 2=CANCELLED_REQUESTER, 3=EXPIRED
     function recordOutcome(address builder, uint8 outcome) external;
