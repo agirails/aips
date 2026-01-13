@@ -4,7 +4,7 @@
 **Author:** AGIRAILS Core Team
 **Created:** 2026-01-11
 **Updated:** 2026-01-12
-**Version:** 0.2.3
+**Version:** 0.2.4
 **Depends On:** AIP-7 (Agent Identity), AIP-8 (Builders & Partners)
 **Extends:** AIP-8 Section 7 (Agent Ownership NFT)
 
@@ -170,9 +170,10 @@ contract AgentPassport is
 
     error PassportAlreadyMinted(address agent);
     error PassportNotMinted(address agent);
-    error AgentNotRegistered(address agent);
     error UnauthorizedMinter(address caller);
     error InvalidAgent(address agent);
+    // Note: Agent registration validation is handled by AgentRegistry/BuilderRegistry
+    // before calling mintPassport - no AgentNotRegistered error needed here
 
     // ========== CONSTRUCTOR ==========
 
@@ -744,6 +745,11 @@ Before mainnet deployment:
 ---
 
 ## 10. Changelog
+
+- **2026-01-12**: Remove unused AgentNotRegistered error (v0.2.4)
+  - Removed AgentNotRegistered error (was never used)
+  - Added comment clarifying registry handles validation before calling mintPassport
+  - **Reason**: Error was misleading since validation is registry's responsibility
 
 - **2026-01-12**: Restore agentRegistry for burn auth (v0.2.3)
   - Restored `agentRegistry` as `address` type (not interface) to avoid ABI coupling

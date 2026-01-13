@@ -4,7 +4,7 @@
 **Author:** AGIRAILS Core Team
 **Created:** 2025-11-29
 **Updated:** 2026-01-12
-**Version:** 0.9.0
+**Version:** 0.9.1
 **Depends On:** AIP-0 (Meta Protocol), AIP-4 (Delivery Proof)
 **Extended By:** AIP-9 (Agent Passport NFT)
 **Reviewed By:** Apex (Protocol Engineer) - 2025-11-29
@@ -550,6 +550,9 @@ interface IAgentRegistry {
 | `getAgent` | Returns full AgentProfile struct |
 | `getAgentForBadges` | Returns minimal AgentBadgeInfo for AIP-10 badge eligibility |
 | `getAgentByDID` | Lookup agent by DID string |
+| `queryAgentsByService` | Query agents by service type with pagination |
+| `getServiceDescriptors` | Get all service descriptors for an agent |
+| `supportsService` | Check if agent supports a specific service type |
 
 **Implementation Note:**
 
@@ -3110,6 +3113,10 @@ const hash = ethers.utils.keccak256(
 ---
 
 ## 12. Changelog
+
+- **2026-01-12**: Complete View Functions table (v0.9.1)
+  - Added queryAgentsByService, getServiceDescriptors, supportsService to View Functions table
+  - **Reason**: Table was incomplete compared to interface definition
 
 - **2026-01-12**: Deregistration + Access Control (v0.9.0)
   - Added `deregisterAgent(address)` function to interface
