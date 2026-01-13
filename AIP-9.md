@@ -4,7 +4,7 @@
 **Author:** AGIRAILS Core Team
 **Created:** 2026-01-11
 **Updated:** 2026-01-12
-**Version:** 0.2.2
+**Version:** 0.2.3
 **Depends On:** AIP-7 (Agent Identity), AIP-8 (Builders & Partners)
 **Extends:** AIP-8 Section 7 (Agent Ownership NFT)
 
@@ -122,6 +122,10 @@ contract AgentPassport is
 {
     // ========== STATE VARIABLES ==========
 
+    /// @notice AIP-7 Agent Registry contract (for burn authorization)
+    /// @dev Stored as address to avoid ABI coupling with AgentProfile struct
+    address public immutable agentRegistry;
+
     /// @notice AIP-8 Builder Registry contract
     IBuilderRegistry public immutable builderRegistry;
 
@@ -173,6 +177,7 @@ contract AgentPassport is
     // ========== CONSTRUCTOR ==========
 
     constructor(
+        address _agentRegistry,
         address _builderRegistry,
         string memory _name,
         string memory _symbol,
@@ -183,6 +188,7 @@ contract AgentPassport is
         ERC721(_name, _symbol)
         Ownable(msg.sender)
     {
+        agentRegistry = _agentRegistry;
         builderRegistry = IBuilderRegistry(_builderRegistry);
         baseTokenURI = _baseTokenURI;
 
@@ -205,7 +211,7 @@ contract AgentPassport is
     /// @dev Only callable by AgentRegistry (AIP-7) or BuilderRegistry (AIP-8)
     function mintPassport(address agent, address owner) external {
         // Verify caller is AgentRegistry OR BuilderRegistry
-        if (msg.sender != address(agentRegistry) && msg.sender != address(builderRegistry)) {
+        if (msg.sender != agentRegistry && msg.sender != address(builderRegistry)) {
             revert UnauthorizedMinter(msg.sender);
         }
 
@@ -240,7 +246,7 @@ contract AgentPassport is
     /// @dev Only callable by AgentRegistry during deregistration
     function burnPassport(address agent) external {
         // Verify caller is AgentRegistry
-        if (msg.sender != address(agentRegistry)) {
+        if (msg.sender != agentRegistry) {
             revert UnauthorizedMinter(msg.sender);
         }
 
@@ -739,9 +745,14 @@ Before mainnet deployment:
 
 ## 10. Changelog
 
+- **2026-01-12**: Restore agentRegistry for burn auth (v0.2.3)
+  - Restored `agentRegistry` as `address` type (not interface) to avoid ABI coupling
+  - mintPassport: callable by AgentRegistry OR BuilderRegistry
+  - burnPassport: callable by AgentRegistry ONLY (deregistration hook)
+  - **Reason**: AIP-7 deregisterAgent needs burn authority; address type avoids ABI issues
+
 - **2026-01-12**: ABI-safe interface cleanup (v0.2.2)
-  - BREAKING: Removed IAgentRegistry interface entirely (not used at runtime)
-  - BREAKING: Removed agentRegistry constructor parameter and state variable
+  - BREAKING: Removed IAgentRegistry interface (replaced with address)
   - Fixed IBuilderRegistry.AgentRegistration to match AIP-8 field order exactly
   - **Reason**: ABI mismatch would cause incorrect decoding of owner/builder fields
 
