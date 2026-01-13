@@ -625,6 +625,59 @@ function _calculateSuccessRate(address builder) internal view returns (uint256) 
 | DEADLINE_EXPIRED | Failure | Provider didn't deliver |
 | CANCELLED_PROVIDER | NOT counted | Provider's choice, not a failure |
 
+#### 4.2.1.2 Display Tier Mapping
+
+UI applications MUST map internal builder status to display tiers as follows:
+
+**Internal Status** (stored on-chain in `BuilderStats.status`):
+| Value | Status | Criteria |
+|-------|--------|----------|
+| 0 | TRIAL | Default for new builders |
+| 1 | ACTIVE | ≥1 completed transaction |
+| 2 | VERIFIED | ≥5 unique counterparties AND ≥$1,000 GMV |
+
+**Display Tiers** (computed from status + badges):
+| Display Tier | Criteria | Badge Requirements |
+|--------------|----------|-------------------|
+| UNVERIFIED | `status == 0 OR status == 1` | None |
+| VERIFIED | `status == 2` | None |
+| PREMIUM | `status == 2` AND `AGENT_PRODUCTION` badge | AIP-10 Badge #2 |
+| CERTIFIED | `status == 2` AND `SECURITY_REVIEWED` badge | AIP-10 Badge #5 |
+
+**Tier Resolution Logic**:
+```typescript
+function getDisplayTier(builder: BuilderStats, badges: BadgeHolding[]): DisplayTier {
+    // Must be VERIFIED status (on-chain) for any tier above UNVERIFIED
+    if (builder.status < 2) return "UNVERIFIED";
+
+    // Check for SECURITY_REVIEWED badge (highest priority)
+    if (badges.some(b => b.badgeType === 5 && !b.revoked && !isExpired(b))) {
+        return "CERTIFIED";
+    }
+
+    // Check for AGENT_PRODUCTION badge
+    if (badges.some(b => b.badgeType === 2 && !b.revoked && !isExpired(b))) {
+        return "PREMIUM";
+    }
+
+    return "VERIFIED";
+}
+```
+
+**Visual Representation**:
+| Display Tier | Color | Icon |
+|--------------|-------|------|
+| UNVERIFIED | Gray (#6B7280) | ○ (empty circle) |
+| VERIFIED | Blue (#3B82F6) | ✓ (checkmark) |
+| PREMIUM | Purple (#8B5CF6) | ★ (star) |
+| CERTIFIED | Gold (#F59E0B) | 🛡️ (shield) |
+
+**Invariants**:
+- Display tier MUST NOT be computed without checking badge expiration
+- CERTIFIED takes precedence over PREMIUM if both badges held
+- A builder can display only ONE tier at a time
+- Tier downgrades automatically when badge expires
+
 #### 4.2.2 IPartnerRegistry
 
 ```solidity
