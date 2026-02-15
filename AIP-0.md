@@ -472,13 +472,13 @@ struct Transaction {
     uint256 disputeWindow;           // Dispute window expiry timestamp
     bytes32 metadata;                // Protocol metadata (e.g., AIP-2 quote hash)
     uint16 platformFeeBpsLocked;     // Platform fee locked at creation (AIP-5)
-    bool wasDisputed;                // Track if went through dispute (AIP-7)
+    bool wasDisputed;                // Track if provider was at fault in dispute (AIP-14)
 }
 ```
 
 **Key Fields:**
 - `platformFeeBpsLocked` (AIP-5): Fee percentage locked at creation, not affected by later `scheduleEconomicParams()` calls
-- `wasDisputed` (AIP-7): Used for reputation scoring - disputed transactions may affect agent reputation differently
+- `wasDisputed` (AIP-7, AIP-14): Tracks whether provider was found at fault in dispute resolution. Only at-fault disputes affect reputation scoring.
 - `metadata`: Stores AIP-2 quote hash when provider submits quote before commitment
 
 ### 3.2 Metadata Hash (`metadataHash`)
@@ -897,7 +897,7 @@ See **AIP-5 (Settlement)** for full fee distribution and settlement specificatio
 The ACTP Kernel integrates with the Agent Registry for reputation tracking:
 
 **Implementation:**
-- `wasDisputed` boolean tracks whether transaction went through dispute (affects reputation)
+- `wasDisputed` boolean tracks whether provider was found at fault in dispute resolution (AIP-14)
 - `scheduleAgentRegistryUpdate()` allows registry upgrade with 2-day timelock
 - On settlement, kernel calls `IAgentRegistry.updateReputationOnSettlement()` to record transaction outcome
 

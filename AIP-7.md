@@ -521,7 +521,7 @@ interface IAgentRegistry {
     /// @param agentAddress Agent to update
     /// @param txId Transaction ID that triggered update
     /// @param txAmount Transaction amount for volume calculation
-    /// @param wasDisputed Whether transaction went through dispute
+    /// @param wasDisputed Whether provider was found at fault in dispute (AIP-14: semantic change)
     function updateReputationOnSettlement(
         address agentAddress,
         bytes32 txId,
