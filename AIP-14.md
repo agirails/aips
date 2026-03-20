@@ -4,7 +4,7 @@
 **Author:** AGIRAILS Core Team
 **Created:** 2026-02-15
 **Updated:** 2026-02-15
-**Version:** 0.3.0
+**Version:** 0.5.0
 **Depends On:** AIP-7 (Reputation System), AIP-5 (Fee Structure)
 **Related:** AIP-0 (Meta Protocol), AIP-12 (Payment Abstraction)
 
@@ -72,11 +72,13 @@ bondAmount = (txn.amount * disputeBondBps) / MAX_BPS
 
 **Bond resolution:**
 
-| Outcome | Fault Party | Bond Destination |
-|---------|------------|-----------------|
-| Provider at fault | Provider | Bond returned to disputer |
-| Not at fault (frivolous) | Disputer | Bond awarded to counterparty |
-| Cancellation | N/A | Bond returned to disputer |
+| Outcome | `providerAtFault` | Bond Destination |
+|---------|-------------------|-----------------|
+| Provider at fault | `true` | Bond to requester |
+| Provider not at fault | `false` | Bond to provider |
+| Cancellation | N/A | Bond returned to disputer (no fault determined) |
+
+Bond goes to the **winning party** based on `providerAtFault`, regardless of who initiated the dispute. This ensures correct incentives even when providers dispute (e.g., provider disputes an unfair review — if provider is found at fault, requester still gets the bond).
 
 #### 2.1.1 Storage Changes
 
@@ -107,15 +109,16 @@ if (bond < MIN_DISPUTE_BOND) bond = MIN_DISPUTE_BOND;
 
 // Both parties post bond via separate transfer into escrow vault.
 // Bond is ON TOP of existing escrow — does not affect transaction split accounting.
+// The vault pulls the bond using its own immutable token reference (vault.token()),
+// ensuring token consistency even if kernel's USDC reference were ever misconfigured.
 IEscrowValidator vault = IEscrowValidator(txn.escrowContract);
-USDC.safeTransferFrom(msg.sender, address(vault), bond);
-vault.depositBond(txn.escrowId, bond);  // Track bond separately from escrow balance
+vault.depositBond(txn.escrowId, msg.sender, bond);  // Vault pulls bond via its own token
 txn.disputeBond = bond;
 
 emit DisputeOpened(txn.transactionId, msg.sender, bond, block.timestamp);
 ```
 
-**Note:** `vault.depositBond(escrowId, amount)` is a new EscrowVault method that tracks bond deposits separately from the main escrow balance. This ensures `vault.remaining(escrowId)` still returns only the transaction amount, while `vault.bondBalance(escrowId)` tracks the dispute bond. See Section 2.5 for EscrowVault changes.
+**Note:** `vault.depositBond(escrowId, from, amount)` is a new EscrowVault method that pulls the bond from the disputer using the vault's own immutable `token` reference (same `IERC20` used for escrow deposits). This ensures token consistency — the bond is always denominated in the same token as the escrow, regardless of any kernel configuration. The disputer must have called `token.approve(vault, bond)` before the dispute transition. See Section 2.5 for EscrowVault changes.
 
 #### 2.1.3 Constants
 
@@ -174,24 +177,30 @@ function _decodeResolutionProof(bytes calldata proof)
     if (proof.length == 64) {
         // Legacy: no mediator, assume provider at fault
         (requesterAmount, providerAmount) = abi.decode(proof, (uint256, uint256));
+        require(requesterAmount > 0 || providerAmount > 0, "Empty resolution");
         return (requesterAmount, providerAmount, address(0), 0, true, true);
     }
     if (proof.length == 96) {
         // AIP-14: no mediator, explicit fault
         (requesterAmount, providerAmount, providerAtFault) =
             abi.decode(proof, (uint256, uint256, bool));
+        require(requesterAmount > 0 || providerAmount > 0, "Empty resolution");
         return (requesterAmount, providerAmount, address(0), 0, true, providerAtFault);
     }
     if (proof.length == 128) {
         // Legacy: with mediator, assume provider at fault
         (requesterAmount, providerAmount, mediator, mediatorAmount) =
             abi.decode(proof, (uint256, uint256, address, uint256));
+        require(requesterAmount > 0 || providerAmount > 0 || mediatorAmount > 0, "Empty resolution");
+        require(mediatorAmount == 0 || mediator != address(0), "Mediator address required");
         return (requesterAmount, providerAmount, mediator, mediatorAmount, true, true);
     }
     // AIP-14: with mediator, explicit fault
     require(proof.length == 160, "Invalid resolution proof");
     (requesterAmount, providerAmount, mediator, mediatorAmount, providerAtFault) =
         abi.decode(proof, (uint256, uint256, address, uint256, bool));
+    require(requesterAmount > 0 || providerAmount > 0 || mediatorAmount > 0, "Empty resolution");
+    require(mediatorAmount == 0 || mediator != address(0), "Mediator address required");
     return (requesterAmount, providerAmount, mediator, mediatorAmount, true, providerAtFault);
 }
 ```
@@ -216,16 +225,9 @@ Bond distribution happens **after** the normal escrow split (requesterAmount/pro
 // After decoding resolution proof and distributing the main escrow split:
 
 if (txn.disputeBond > 0) {
-    if (providerAtFault) {
-        // Provider at fault → bond returned to disputer
-        vault.releaseBond(txn.escrowId, txn.disputeInitiator, txn.disputeBond);
-    } else {
-        // Requester at fault (frivolous dispute) → bond awarded to counterparty
-        address counterparty = (txn.disputeInitiator == txn.requester)
-            ? txn.provider
-            : txn.requester;
-        vault.releaseBond(txn.escrowId, counterparty, txn.disputeBond);
-    }
+    // Bond goes to the winning party, regardless of who initiated the dispute
+    address bondRecipient = providerAtFault ? txn.requester : txn.provider;
+    vault.releaseBond(txn.escrowId, bondRecipient, txn.disputeBond);
 
     emit DisputeResolved(
         txn.transactionId,
@@ -235,12 +237,16 @@ if (txn.disputeBond > 0) {
         txn.disputeBond,
         block.timestamp
     );
+
+    txn.disputeBond = 0;  // Defense-in-depth: prevent double distribution
 }
 ```
 
 **Accounting invariant:** `vault.remaining(escrowId)` tracks only the transaction amount. `vault.bondBalance(escrowId)` tracks the dispute bond. After resolution, both must be zero — the escrow is fully distributed via the resolution proof, and the bond is fully distributed via `releaseBond`. This maintains INV-14.6 (escrow solvency) without complicating the existing split logic.
 
-**Split / no clear fault:** When the resolution is a proportional split (neither party clearly at fault), the resolver sets `providerAtFault = false` and the bond returns to the disputer. This is the generous default — disputes should only damage reputation when there's clear provider fault.
+**Bond distribution runs even when escrow remaining is 0.** If the escrow was fully paid out through prior milestones, the settlement/cancellation path skips escrow distribution but still distributes the bond. This prevents bonds from becoming permanently locked.
+
+**Split / no clear fault:** When the resolution is a proportional split (neither party clearly at fault), the resolver sets `providerAtFault = false` and the bond goes to the provider. This means disputes only damage reputation AND cost the disputer money when there's clear provider fault.
 
 #### 2.2.5 Bond Return on Cancellation (DISPUTED → CANCELLED)
 
@@ -282,6 +288,18 @@ function updateReputationOnSettlement(
 ```
 
 The parameter name `wasDisputed` is preserved for ABI compatibility. Its **semantic meaning** changes from "transaction was disputed" to "provider was found at fault in dispute". The internal logic (`if (wasDisputed) { profile.disputedTransactions += 1; }`) requires no change — only the value passed by ACTPKernel changes.
+
+**Cross-AIP documentation update required:** The following documents and interfaces still describe `wasDisputed` with the old semantics ("went through dispute") and must be updated to reflect AIP-14's meaning ("provider was at fault"):
+
+| Location | Current Text | Required Update |
+|----------|-------------|-----------------|
+| AIP-0.md (Transaction struct docs) | "Track if went through dispute" | "Track if provider was at fault in dispute" |
+| AIP-0.md (implementation section) | "`wasDisputed` boolean tracks whether transaction went through dispute (affects reputation)" | "`wasDisputed` boolean tracks whether provider was found at fault in dispute resolution (AIP-14)" |
+| AIP-7.md (interface comment) | "Whether transaction went through dispute" | "Whether provider was found at fault (AIP-14)" |
+| AIP-7.md (implementation) | Multiple references to old semantics | Update inline comments |
+| `IAgentRegistry.sol` (line 199) | `/// @param wasDisputed Whether transaction went through dispute` | `/// @param wasDisputed Whether provider was found at fault in dispute (AIP-14: semantic change)` |
+
+These updates are part of Phase 1 (contract changes) and MUST be applied atomically with the kernel upgrade to prevent analytics/indexer misinterpretation.
 
 ### 2.4 ERC-8004 Reputation Bridge Alignment
 
@@ -438,10 +456,14 @@ The EscrowVault needs two new methods to track bond deposits separately from esc
 mapping(bytes32 => uint256) public bondBalances;
 
 /// @notice Deposit a dispute bond for an escrow. Called by ACTPKernel during dispute opening.
+///         The vault pulls the bond from `from` using its own immutable `token` reference,
+///         ensuring token consistency (bond always uses the same token as the escrow).
 /// @param escrowId The escrow to associate the bond with
-/// @param amount The bond amount (already transferred to vault)
-function depositBond(bytes32 escrowId, uint256 amount) external onlyKernel {
-    require(amount > 0, "Zero bond");
+/// @param from The address posting the bond (must have approved vault)
+/// @param amount The bond amount to pull
+function depositBond(bytes32 escrowId, address from, uint256 amount) external onlyKernel {
+    require(amount > 0, "Amount zero");
+    token.safeTransferFrom(from, address(this), amount);
     bondBalances[escrowId] += amount;
 }
 
@@ -452,7 +474,7 @@ function depositBond(bytes32 escrowId, uint256 amount) external onlyKernel {
 function releaseBond(bytes32 escrowId, address recipient, uint256 amount) external onlyKernel {
     require(bondBalances[escrowId] >= amount, "Insufficient bond");
     bondBalances[escrowId] -= amount;
-    USDC.safeTransfer(recipient, amount);
+    token.safeTransfer(recipient, amount);
 }
 
 /// @notice View the bond balance for an escrow
@@ -500,16 +522,17 @@ event DisputeResolved(
 |----|-----------|--------------|
 | INV-14.1 | Bond amount is deterministic | `bond = max(amount * disputeBondBps / MAX_BPS, MIN_DISPUTE_BOND)` |
 | INV-14.2 | Bond cannot exceed MAX_DISPUTE_BOND_BPS | Admin setter enforces `<= 2000` |
-| INV-14.3 | Bond is fully distributed at resolution | Goes to winner or returned to disputer; never stuck |
+| INV-14.3 | Bond is fully distributed at resolution | Goes to winning party (`providerAtFault ? requester : provider`); returned to disputer on cancellation; never stuck (runs even when escrow remaining == 0) |
 | INV-14.4 | Provider reputation unaffected when not at fault | `providerAtFault = false` → `wasDisputed = false` to registry |
 | INV-14.5 | Legacy proofs default to `providerAtFault = true` | 64/128-byte proofs preserve current behavior |
 | INV-14.6 | Escrow solvency maintained | Bond tracked via separate `bondBalances` mapping; `remaining(escrowId)` unaffected; `bondBalance(escrowId) == 0` after resolution |
 | INV-14.7 | `disputeInitiator` is immutable after dispute opens | Set once in DISPUTED transition, never modified |
 | INV-14.8 | AgentRegistry and ERC-8004 reputation are consistent | `providerAtFault` maps to `!agentWon` in ReputationReporter |
 | INV-14.9 | Every dispute emits `DisputeOpened` | Emitted in DISPUTED transition, once per dispute |
-| INV-14.10 | Every dispute resolution emits `DisputeResolved` | Emitted in both SETTLED and CANCELLED paths when `disputeBond > 0` |
+| INV-14.10 | Every AIP-14 dispute resolution emits `DisputeResolved` | Emitted in both SETTLED and CANCELLED paths when `disputeBond > 0`. Legacy transactions (pre-AIP-14, `disputeBond == 0`) do not emit this event — they were opened before AIP-14 and have no bond to distribute. |
 | INV-14.11 | Requester ERC-8004 report uses distinct feedbackHash | `keccak256(txId + ":requester")` prevents collision with provider report |
 | INV-14.12 | Requester-side report only when `requesterAgentId != 0` | Non-agent requesters are skipped (no ERC-8004 identity to report against) |
+| INV-14.13 | Bond token == escrow token | Vault pulls bond via its own immutable `token` reference; kernel never transfers bond directly |
 
 ---
 
@@ -567,7 +590,7 @@ Bond mechanism adds ~10-50K gas to disputes. Normal (non-disputed) transactions 
 
 - [ ] Add `requesterAgentId`, `disputeInitiator`, `disputeBond` to Transaction struct
 - [ ] Add `disputeBondBps`, `MIN_DISPUTE_BOND`, `MAX_DISPUTE_BOND_BPS` constants
-- [ ] Update DISPUTED transition: compute bond, `safeTransferFrom` from initiator, `vault.depositBond()`
+- [ ] Update DISPUTED transition: compute bond, call `vault.depositBond(escrowId, msg.sender, bond)` (vault pulls via own token)
 - [ ] Emit `DisputeOpened` event on DISPUTED transition
 - [ ] Extend `_decodeResolutionProof` with `providerAtFault` return value
 - [ ] Update `_handleDisputeSettlement`: pass `providerAtFault` to registry, `vault.releaseBond()`, emit `DisputeResolved`
@@ -575,13 +598,17 @@ Bond mechanism adds ~10-50K gas to disputes. Normal (non-disputed) transactions 
 - [ ] Add admin setter for `disputeBondBps` with delay and cap enforcement
 - [ ] EscrowVault: add `bondBalances` mapping, `depositBond()`, `releaseBond()`, `bondBalance()` methods
 - [ ] Update `DisputeOpened` and `DisputeResolved` event signatures in `IACTPKernel.sol`
+- [ ] Update `wasDisputed` comments in `IAgentRegistry.sol`, AIP-0.md, AIP-7.md (semantic change: "went through dispute" → "provider at fault")
 
 ### Phase 2: Tests
 
-- [ ] Requester dispute with bond → provider wins → provider reputation clean, bond to provider
-- [ ] Requester dispute with bond → requester wins → provider reputation hit, bond returned
-- [ ] Provider dispute with bond → provider wins → bond returned
-- [ ] Split resolution → `providerAtFault = false` → no reputation impact, bond returned to disputer
+- [ ] Requester disputes, `providerAtFault = true` → provider reputation hit, bond to requester
+- [ ] Requester disputes, `providerAtFault = false` → provider reputation clean, bond to provider
+- [ ] Provider disputes, `providerAtFault = true` → bond to requester (provider loses despite initiating)
+- [ ] Provider disputes, `providerAtFault = false` → bond to provider (provider wins)
+- [ ] Split resolution → `providerAtFault = false` → no reputation impact, bond to provider
+- [ ] Bond distributed even when escrow remaining == 0 (settlement path)
+- [ ] Bond distributed even when escrow remaining == 0 (cancellation path)
 - [ ] DISPUTED → CANCELLED: bond returned to disputer, no reputation update, `DisputeResolved` emitted
 - [ ] Legacy 64-byte proof → defaults to `providerAtFault = true`
 - [ ] Legacy 128-byte proof → defaults to `providerAtFault = true`
@@ -655,7 +682,7 @@ No data migration needed. Old AgentRegistry contract works unchanged — only th
 ### 8.3 Legitimate Dispute Economics
 
 A requester with a genuine grievance:
-1. Opens dispute, bond of 5% reserved from escrow.
+1. Opens dispute, posts a 5% bond (separate transfer to escrow vault).
 2. Resolver finds provider at fault.
 3. Requester gets refund + bond returned in full.
 4. Provider's reputation correctly reflects the legitimate dispute.
@@ -668,8 +695,10 @@ A requester with a genuine grievance:
 
 - [AIP-7: Reputation System](./AIP-7.md)
 - [AIP-5: Fee Structure](./AIP-5.md)
-- [ACTPKernel.sol](../src/ACTPKernel.sol) — `_handleDisputeSettlement`, `_handleCancellation`
-- [AgentRegistry.sol](../src/registry/AgentRegistry.sol) — `updateReputationOnSettlement`, `_calculateReputationScore`
+- [ACTPKernel.sol](../actp-kernel/src/ACTPKernel.sol) — `_handleDisputeSettlement`, `_handleCancellation`
+- [AgentRegistry.sol](../actp-kernel/src/registry/AgentRegistry.sol) — `updateReputationOnSettlement`, `_calculateReputationScore`
+- [EscrowVault.sol](../actp-kernel/src/escrow/EscrowVault.sol) — `depositBond`, `releaseBond` (AIP-14 additions)
+- [IAgentRegistry.sol](../actp-kernel/src/interfaces/IAgentRegistry.sol) — `wasDisputed` parameter (AIP-14 semantic change)
 
 ---
 
@@ -680,6 +709,8 @@ A requester with a genuine grievance:
 | 0.1.0 | 2026-02-15 | Initial draft |
 | 0.2.0 | 2026-02-15 | Fix: requester bond as separate transfer (not carved from escrow); Add: `_handleCancellation` bond return spec; Add: `DisputeOpened`/`DisputeResolved` event emission; Add: EscrowVault `depositBond`/`releaseBond` methods; Updated gas estimates |
 | 0.3.0 | 2026-02-15 | Add: requester-side ERC-8004 reputation reporting (`actp_frivolous_dispute` tag); Add: `requesterAgentId` to Transaction struct; Add: `reportDisputeRequester()` SDK method; Bilateral reputation for agent-to-agent economy |
+| 0.4.0 | 2026-02-15 | Security: restore `require` checks in decode (empty resolution, mediator address); Fix: vault pulls bond via own `token` (INV-14.13); Add: cross-AIP `wasDisputed` semantic update table; Fix: "reserved from escrow" → "separate transfer" in Section 8.3; Fix: INV-14.10 scoped to AIP-14 disputes only; Fix: relative paths in References |
+| 0.5.0 | 2026-02-15 | **Breaking**: Bond distribution now based on `providerAtFault ? requester : provider` (not disputer/counterparty) — fixes provider-initiated dispute giving bond to wrong party; Fix: bond distribution runs even when escrow remaining == 0 (prevents permanent lock); Fix: error messages aligned to "Amount zero" convention; Defense-in-depth: `txn.disputeBond = 0` after distribution; Updated Phase 2 checklist with provider-initiated dispute scenarios |
 
 ---
 
