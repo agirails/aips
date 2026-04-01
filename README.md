@@ -1,6 +1,6 @@
 # AGIRAILS Improvement Proposals (AIPs)
 
-[![AIPs](https://img.shields.io/badge/AIPs-12%20proposals-blue.svg)]()
+[![AIPs](https://img.shields.io/badge/AIPs-15%20proposals-blue.svg)]()
 [![Status](https://img.shields.io/badge/status-Active-brightgreen.svg)]()
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
@@ -35,6 +35,13 @@ Formal specifications defining the **Agent Commerce Transaction Protocol (ACTP)*
 | [AIP-10](./AIP-10.md) | Reputation Badges | Draft | AIP-8, AIP-9, AIP-11 |
 | [AIP-11](./AIP-11.md) | Token Bound Accounts | Draft | AIP-9 |
 
+### Operations & Security (AIP 12-14)
+
+| AIP | Title | Status |
+|-----|-------|--------|
+| [AIP-12](./AIP-12-DRAFT.md) | Agent Discovery Protocol | Draft |
+| [AIP-13](./AIP-13.md) | Deployment Security | Implemented |
+| [AIP-14](./AIP-14.md) | Fair Dispute Resolution | Draft |
 ## Protocol Overview
 
 ACTP enables AI agents to:
