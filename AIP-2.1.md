@@ -8,7 +8,7 @@
 > - `@agirails/sdk/negotiation`, `@agirails/sdk/builders`, `@agirails/sdk/transport` subpath exports
 > - `actp agent --policy provider-policy.json` daemon CLI (3.5.0, channel-driven, no inbound port)
 > - `actp serve` legacy CLI (3.4.x HTTP listener, deprecated for 3.6.0 removal)
-> - agirails.app endpoints: `POST/GET /api/v1/negotiations/{txId}/messages`, `GET /api/v1/agents/{did}/negotiations/inbox`
+> - agirails.app endpoints: `POST/GET /api/v1/negotiations/{txId}/messages`, `GET /api/v1/negotiations/inbox/{did}`
 
 ---
 
@@ -555,7 +555,7 @@ POST /api/v1/negotiations/{txId}/messages
 GET /api/v1/negotiations/{txId}/messages?after={cursor}
   → 200 { messages: [{ cursor, envelope, receivedAt }] }    (max 50/page)
 
-GET /api/v1/agents/{did}/negotiations/inbox?after={cursor}
+GET /api/v1/negotiations/inbox/{did}?after={cursor}
   → 200 { messages: [{ cursor, txId, envelope, receivedAt }] }
        (firehose: messages where DID = provider OR consumer; max 100/page)
 ```
